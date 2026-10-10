@@ -441,3 +441,54 @@ input:-webkit-autofill,input:-webkit-autofill:focus{-webkit-text-fill-color:var(
 @media (min-width:600px){.days,.times{grid-template-columns:repeat(6,minmax(0,1fr))}}
 
 .pill:disabled{opacity:.4;cursor:not-allowed;text-decoration:line-through}
+
+/* ===================== Навбат: тёмная гипнотическая тема на фоне картинки ===================== */
+html:root:root{color-scheme:dark;--bg:#12050a;--surface:rgba(38,12,24,.55);--ink:#fff1ec;--muted:#f2c8bd;--line:rgba(255,178,158,.30);--accent:#ff7f5f;--accent-ink:#2a0707;--soft:rgba(255,127,95,.18);--good:#8fe3a8;--bad:#ff9d8f;--warn:#ffd08a}
+html{background:#12050a}
+body{background:transparent;color:var(--ink)}
+.bg{position:fixed;inset:-6%;z-index:-3;background:var(--bg-img) center 28%/cover no-repeat;animation:breathe 24s ease-in-out infinite alternate;will-change:transform}
+.bg-shade{position:fixed;inset:0;z-index:-2;background:linear-gradient(180deg,rgba(18,5,10,.30) 0%,rgba(18,5,10,.72) 36%,rgba(18,5,10,.86) 100%)}
+.bg-glow{position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(60% 38% at 50% 22%,rgba(255,140,105,.30),transparent 70%);animation:pulse 7s ease-in-out infinite}
+@keyframes breathe{from{transform:scale(1) translateY(0)}to{transform:scale(1.10) translateY(-1.5%)}}
+@keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.bg,.bg-glow{animation:none}}
+
+.hero-wrap{position:relative;text-align:center;padding:52px 0 10px}
+.hero-cap{position:static;display:block;background:none;padding:0}
+.hero-title{margin:0;font-size:30px;line-height:1.1;font-weight:700;letter-spacing:.02em;color:#fff;text-shadow:0 0 28px rgba(255,140,110,.85),0 0 60px rgba(255,100,90,.45),0 2px 8px rgba(0,0,0,.6)}
+.hero-sub{display:block;margin-top:10px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);opacity:.95;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.lang-btn{top:10px;right:0;background:rgba(255,255,255,.10);border-color:rgba(255,200,185,.55)}
+
+.panel,.scroll{background:var(--surface);backdrop-filter:blur(16px) saturate(1.25);-webkit-backdrop-filter:blur(16px) saturate(1.25);border:1px solid var(--line);box-shadow:0 10px 34px rgba(0,0,0,.40),inset 0 1px 0 rgba(255,255,255,.10)}
+h2{color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.5)}
+.small,.muted,.empty,.note,.fld>span{color:var(--muted)}
+.note{border-left-color:var(--line)}
+.empty{text-shadow:0 1px 6px rgba(0,0,0,.5)}
+input{background:rgba(255,255,255,.09);color:var(--ink);border:1px solid var(--line)}
+input:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,127,95,.28)}
+input::placeholder{color:rgba(255,225,215,.45)}
+.pill{background:rgba(255,255,255,.08);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid var(--line);color:var(--ink);transition:transform .12s,box-shadow .2s,background .2s}
+.pill:hover:not(:disabled){background:rgba(255,160,135,.18);border-color:rgba(255,190,170,.6)}
+.pill:active:not(:disabled){transform:scale(.96)}
+.pill[aria-pressed="true"]{background:linear-gradient(135deg,#ff9a76,#ff5f7e);color:#2a0707;border-color:transparent;box-shadow:0 0 22px rgba(255,120,100,.65),0 4px 14px rgba(0,0,0,.35)}
+.btn{background:linear-gradient(135deg,#ff9a76,#ff5f7e);color:#2a0707;border:0;box-shadow:0 0 22px rgba(255,120,100,.5),0 6px 16px rgba(0,0,0,.35)}
+.btn.ghost{background:rgba(255,255,255,.08);color:var(--ink);border:1px solid var(--line);box-shadow:none}
+.alert{color:var(--warn)}
+.list li{border-bottom-color:var(--line)}
+.tick{background:linear-gradient(135deg,#7fe3a0,#37b97a);color:#06281a;box-shadow:0 0 28px rgba(110,230,160,.55)}
+
+/* недельный календарь */
+.monthline{margin:0;text-align:center;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.cal7{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.cal7 .wd{text-align:center;font-size:11px;font-weight:600;color:var(--muted);padding:4px 0}
+.cal7 .dayp{display:flex;align-items:center;justify-content:center;min-height:40px;padding:0;border-radius:12px;font-size:14px;font-weight:600;font-family:var(--f-num)}
+.cal7 .dayp.off{border:0;background:transparent;box-shadow:none;color:rgba(255,225,215,.25);font-weight:400}
+.days{display:none}
+@media (max-width:600px){
+  .hero-wrap{padding:46px 0 6px}
+  .hero-title{font-size:26px}
+  .cal7{gap:5px}
+  .cal7 .dayp{min-height:38px;font-size:13px}
+}
+
+.pill:not([aria-pressed="true"]){background:rgba(24,7,15,.42)}

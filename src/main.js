@@ -9,9 +9,9 @@ import '@fontsource/onest/latin-700.css';
 import '@fontsource/jetbrains-mono/cyrillic-400.css';
 import '@fontsource/jetbrains-mono/latin-400.css';
 import './style.css';
-import heroUrl from './assets/hero.jpg';
+import bgUrl from './assets/bg.jpg';
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
-import { t, getLang, setLang, weekdays, weekdaysFull, monthsGen } from './i18n.js';
+import { t, getLang, setLang, weekdays, weekdaysFull, monthsGen, months } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 const TZ = 5 * 3600e3;
@@ -57,8 +57,19 @@ function view() {
       '<p class="note">' + t('Пожалуйста, приходите за 5 минут до приёма. Если планы изменились, позвоните в клинику, чтобы отменить запись.') + '</p>' +
       '<div class="row"><button class="btn ghost" data-act="again">' + t('Записать ещё') + '</button></div></div></section>';
   }
-  const days = workDays();
-  let h = '<section><h2>1. ' + t('Выберите день') + '</h2><div class="days">' + days.map((d) => '<button type="button" class="pill dayp" data-act="day" data-id="' + d + '" aria-pressed="' + (S.day === d) + '"' + (S.days && S.days[d] === 0 ? ' disabled title="' + esc(t('Нет свободного времени')) + '"' : '') + '>' + dayShort(d) + '</button>').join('') + '</div></section>';
+  // дни неделями: заголовок Пн–Вс, ряды по семь, нажимаются только дни со свободным временем
+  const today = todayTz(), last = addDays(today, S.info.days_ahead), wd = weekdays();
+  const open = (d) => d >= today && d <= last && S.info.work_days.indexOf(isoDow(d)) >= 0 && (!S.days || S.days[d] > 0 || S.days[d] === undefined);
+  let cells = wd.map((w) => '<span class="wd">' + w + '</span>').join('');
+  for (let wk = addDays(today, -(isoDow(today) - 1)); wk <= last; wk = addDays(wk, 7)) {
+    if (![0, 1, 2, 3, 4, 5, 6].some((i) => open(addDays(wk, i)))) continue; // неделя без свободных дней не показывается
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(wk, i);
+      cells += open(d) ? '<button type="button" class="pill dayp" data-act="day" data-id="' + d + '" aria-pressed="' + (S.day === d) + '" aria-label="' + esc(dayFull(d)) + '">' + +d.slice(8, 10) + '</button>' : '<span class="dayp off" aria-hidden="true">·</span>';
+    }
+  }
+  const mn = (d) => months()[+d.slice(5, 7) - 1], monthText = today.slice(0, 7) === last.slice(0, 7) ? mn(today) + ' ' + today.slice(0, 4) : mn(today) + ' — ' + mn(last) + ' ' + last.slice(0, 4);
+  let h = '<section><h2>1. ' + t('Выберите день') + '</h2><p class="monthline">' + esc(monthText) + '</p><div class="cal7">' + cells + '</div></section>';
   h += '<section><h2>2. ' + t('Выберите врача') + '</h2><div class="pills">' + S.info.doctors.map((d) => '<button type="button" class="pill" data-act="doctor" data-id="' + esc(d.id) + '" aria-pressed="' + (S.doctor === d.id) + '"' + (docWorks(d, S.day) ? '' : ' disabled title="' + esc(t('В этот день не работает')) + '"') + '><i class="dot" style="--c:' + esc(d.color) + '"></i>' + esc(d.name) + '</button>').join('') + '</div></section>';
   h += '<section><h2>3. ' + t('Выберите время') + '</h2>';
   if (S.error && !S.time) h += '<p class="alert">' + esc(S.error) + '</p>';
@@ -132,5 +143,5 @@ async function start() {
   catch (e) { S.error = t('Нет связи. Попробуйте ещё раз.'); }
   render();
 }
-$('hero').src = heroUrl;
+document.documentElement.style.setProperty('--bg-img', 'url(' + bgUrl + ')');
 start();
