@@ -11,7 +11,7 @@ import '@fontsource/jetbrains-mono/latin-400.css';
 import './style.css';
 import heroUrl from './assets/hero.jpg';
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
-import { t, getLang, setLang, months, weekdays } from './i18n.js';
+import { t, getLang, setLang, weekdays, weekdaysFull, monthsGen } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 const TZ = 5 * 3600e3;
@@ -41,7 +41,7 @@ const errText = (e) => (ERR[e.code] ? t(ERR[e.code]) : t('Нет связи. П�
 
 function workDays() { const out = []; for (let i = 0; i <= S.info.days_ahead; i++) { const d = addDays(todayTz(), i); if (S.info.work_days.indexOf(isoDow(d)) >= 0) out.push(d); } return out; }
 const dayShort = (d) => weekdays()[isoDow(d) - 1] + ' ' + +d.slice(8, 10);
-const dayFull = (d) => weekdays()[isoDow(d) - 1] + ', ' + +d.slice(8, 10) + ' ' + months()[+d.slice(5, 7) - 1].toLowerCase();
+const dayFull = (d) => weekdaysFull()[isoDow(d) - 1] + ', ' + +d.slice(8, 10) + ' ' + monthsGen()[+d.slice(5, 7) - 1];
 const docWorks = (d, day) => !day || (d.work_days || S.info.work_days).indexOf(isoDow(day)) >= 0;
 const docName = (id) => (S.info.doctors.filter((d) => d.id === id)[0] || { name: '' }).name;
 
