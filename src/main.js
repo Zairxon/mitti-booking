@@ -42,6 +42,7 @@ const errText = (e) => (ERR[e.code] ? t(ERR[e.code]) : t('Нет связи. П�
 function workDays() { const out = []; for (let i = 0; i <= S.info.days_ahead; i++) { const d = addDays(todayTz(), i); if (S.info.work_days.indexOf(isoDow(d)) >= 0) out.push(d); } return out; }
 const dayShort = (d) => weekdays()[isoDow(d) - 1] + ' ' + +d.slice(8, 10);
 const dayFull = (d) => weekdays()[isoDow(d) - 1] + ', ' + +d.slice(8, 10) + ' ' + months()[+d.slice(5, 7) - 1].toLowerCase();
+const docWorks = (d, day) => !day || (d.work_days || S.info.work_days).indexOf(isoDow(day)) >= 0;
 const docName = (id) => (S.info.doctors.filter((d) => d.id === id)[0] || { name: '' }).name;
 
 function view() {
@@ -58,13 +59,15 @@ function view() {
   }
   const days = workDays();
   let h = '<section><h2>1. ' + t('Выберите день') + '</h2><div class="days">' + days.map((d) => '<button type="button" class="pill dayp" data-act="day" data-id="' + d + '" aria-pressed="' + (S.day === d) + '">' + dayShort(d) + '</button>').join('') + '</div></section>';
-  h += '<section><h2>2. ' + t('Выберите врача') + '</h2><div class="pills">' + S.info.doctors.map((d) => '<button type="button" class="pill" data-act="doctor" data-id="' + esc(d.id) + '" aria-pressed="' + (S.doctor === d.id) + '"><i class="dot" style="--c:' + esc(d.color) + '"></i>' + esc(d.name) + '</button>').join('') + '</div></section>';
+  h += '<section><h2>2. ' + t('Выберите врача') + '</h2><div class="pills">' + S.info.doctors.map((d) => '<button type="button" class="pill" data-act="doctor" data-id="' + esc(d.id) + '" aria-pressed="' + (S.doctor === d.id) + '"' + (docWorks(d, S.day) ? '' : ' disabled title="' + esc(t('В этот день не работает')) + '"') + '><i class="dot" style="--c:' + esc(d.color) + '"></i>' + esc(d.name) + '</button>').join('') + '</div></section>';
   h += '<section><h2>3. ' + t('Выберите время') + '</h2>';
   if (S.error && !S.time) h += '<p class="alert">' + esc(S.error) + '</p>';
   if (!S.day || !S.doctor) h += '<p class="empty">' + t('Сначала выберите день и врача.') + '</p>';
   else if (S.loading) h += '<p class="empty">' + t('Загрузка…') + '</p>';
   else {
     const free = (S.slots && S.slots[S.doctor]) || [];
+    const dd = S.info.doctors.filter((x) => x.id === S.doctor)[0];
+    if (dd && !docWorks(dd, S.day)) h += '<p class="empty">' + t('Врач в этот день не работает. Выберите другой день или врача.') + '</p>'; else
     h += free.length ? '<div class="times">' + free.map((x) => '<button type="button" class="pill tslot" data-act="time" data-id="' + x + '" aria-pressed="' + (S.time === x) + '">' + x + '</button>').join('') + '</div>' : '<p class="empty">' + t('На этот день свободного времени нет. Выберите другой день или врача.') + '</p>';
   }
   h += '</section>';
@@ -81,8 +84,8 @@ function view() {
 }
 
 function render() {
-  document.title = t('Митти юракча: онлайн-запись');
-  $('hero-sub').textContent = t('Онлайн-запись на УЗИ');
+  document.title = t('Митти юракча: Очередь');
+  $('hero-sub').textContent = t('Очередь: онлайн-запись на УЗИ');
   $('lang').textContent = getLang() === 'uz' ? 'РУ' : 'ЎЗ';
   $('app').innerHTML = view();
 }
