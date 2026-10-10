@@ -21,7 +21,7 @@ const isoDow = (d) => { const x = new Date(d + 'T00:00:00Z').getUTCDay(); return
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const SRC = new URLSearchParams(location.search).get('src') === 'bot' ? 'bot' : 'site';
 
-const S = { info: null, day: '', doctor: '', time: '', slots: null, loading: false, name: '', phone: '', busy: false, done: null, error: '' };
+const S = { days: null, info: null, day: '', doctor: '', time: '', slots: null, loading: false, name: '', phone: '', busy: false, done: null, error: '' };
 
 /* вызов публичных функций базы: они отдают только свободное время и принимают запись */
 async function rpc(fn, args) {
@@ -58,7 +58,7 @@ function view() {
       '<div class="row"><button class="btn ghost" data-act="again">' + t('Записать ещё') + '</button></div></div></section>';
   }
   const days = workDays();
-  let h = '<section><h2>1. ' + t('Выберите день') + '</h2><div class="days">' + days.map((d) => '<button type="button" class="pill dayp" data-act="day" data-id="' + d + '" aria-pressed="' + (S.day === d) + '">' + dayShort(d) + '</button>').join('') + '</div></section>';
+  let h = '<section><h2>1. ' + t('Выберите день') + '</h2><div class="days">' + days.map((d) => '<button type="button" class="pill dayp" data-act="day" data-id="' + d + '" aria-pressed="' + (S.day === d) + '"' + (S.days && S.days[d] === 0 ? ' disabled title="' + esc(t('Нет свободного времени')) + '"' : '') + '>' + dayShort(d) + '</button>').join('') + '</div></section>';
   h += '<section><h2>2. ' + t('Выберите врача') + '</h2><div class="pills">' + S.info.doctors.map((d) => '<button type="button" class="pill" data-act="doctor" data-id="' + esc(d.id) + '" aria-pressed="' + (S.doctor === d.id) + '"' + (docWorks(d, S.day) ? '' : ' disabled title="' + esc(t('В этот день не работает')) + '"') + '><i class="dot" style="--c:' + esc(d.color) + '"></i>' + esc(d.name) + '</button>').join('') + '</div></section>';
   h += '<section><h2>3. ' + t('Выберите время') + '</h2>';
   if (S.error && !S.time) h += '<p class="alert">' + esc(S.error) + '</p>';
@@ -84,12 +84,13 @@ function view() {
 }
 
 function render() {
-  document.title = t('Митти юракча: Очередь');
+  document.title = '«Митти юракча»: ' + t('Очередь');
   $('hero-sub').textContent = t('Очередь: онлайн-запись на УЗИ');
   $('lang').textContent = getLang() === 'uz' ? 'РУ' : 'ЎЗ';
   $('app').innerHTML = view();
 }
 
+async function loadDays() { try { S.days = await rpc('public_days'); } catch (e) { S.days = null; } }
 async function loadSlots() {
   if (!S.day || !S.doctor) { render(); return; }
   S.loading = true; S.time = ''; render();
@@ -127,7 +128,7 @@ document.addEventListener('input', (ev) => {
 
 async function start() {
   render();
-  try { S.info = await rpc('public_info'); S.error = ''; if (S.info.doctors.length === 1) S.doctor = S.info.doctors[0].id; const w = workDays(); S.day = w[0] || ''; if (S.day && S.doctor) await loadSlots(); }
+  try { S.info = await rpc('public_info'); S.error = ''; await loadDays(); if (S.info.doctors.length === 1) S.doctor = S.info.doctors[0].id; const w = workDays(); S.day = w.filter((d) => !S.days || S.days[d] !== 0)[0] || w[0] || ''; if (S.day && S.doctor) await loadSlots(); }
   catch (e) { S.error = t('Нет связи. Попробуйте ещё раз.'); }
   render();
 }
