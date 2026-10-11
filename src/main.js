@@ -13,6 +13,7 @@ import bgUrl from './assets/bg.jpg';
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
 import { fmtPhoneInput, fmtPhone, cleanPhone, localDigits } from './phone.js';
 import { t, getLang, setLang, weekdays, weekdaysFull, monthsGen, months, pick, pickList, brand } from './i18n.js';
+import { mountFooter } from './footer.js';
 
 const $ = (id) => document.getElementById(id);
 const TZ = 5 * 3600e3;
@@ -169,15 +170,15 @@ function view() {
       '<div class="fld"><span>' + t('Телефон') + '</span><input id="b-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+998 90 123 45 67" maxlength="17" value="' + esc(S.phone) + '"></div>' +
       '<p class="small muted">' + esc(dayFull(S.day)) + ' · <b>' + S.time + '</b> · ' + esc(docName(S.doctor)) + '</p>' +
       (pre ? '<p class="small"><b>' + esc(L((svcOf(S.svc) || {}).name)) + '</b> · ' + t('Предоплата') + ': <b class="num">' + money((svcOf(S.svc) || {}).deposit) + ' ' + t('сум') + '</b></p><label class="agree"><input type="checkbox" id="b-agree"' + (S.agree ? ' checked' : '') + '><span>' + t('Я понимаю, что оплата вносится вперёд') + '</span></label>' : '') +
-      (S.error ? '<p class="alert">' + esc(S.error) + '</p>' : '') +
-      '<div class="row"><button class="btn" data-act="book"' + (S.busy ? ' disabled' : '') + '>' + t(pre ? 'Записаться и оплатить' : 'Записаться') + '</button></div></div>' +
+      (S.error ? '<p class="alert errbox" id="b-err" role="alert">⚠️ ' + esc(S.error) + '</p>' : '') +
+      '<div class="row"><button class="btn" data-act="book"' + (S.busy ? ' disabled' : '') + '>' + t(S.busy ? 'Отправляю…' : pre ? 'Записаться и оплатить' : 'Записаться') + '</button></div></div>' +
       '<p class="note">' + t('Нажимая «Записаться», вы соглашаетесь, что клиника свяжется с вами по этому номеру.') + '</p></section>';
   }
   return h + aboutBlock();
 }
 
 function render() {
-  document.title = brand() + ': ' + t('Очередь'); document.querySelector('.hero-title').textContent = brand();
+  mountFooter(t('Очередь')); document.title = brand() + ': ' + t('Очередь'); document.querySelector('.hero-title').textContent = brand();
   $('hero-sub').textContent = t('Очередь: онлайн-запись на УЗИ');
   $('lang').textContent = { ru: 'РУ', uz: 'ЎЗ', uzl: 'UZ' }[getLang()];
   document.querySelectorAll('#langmenu button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === getLang())));
@@ -185,6 +186,9 @@ function render() {
   $('slogan').textContent = sl; $('slogan').hidden = !sl;
   $('app').dataset.fresh = S.fresh; S.fresh = '';
   $('app').innerHTML = view();
+  // при смене экрана (форма → оплата → «записаны») возвращаемся наверх, иначе на телефоне остаётся пустой низ страницы
+  const vk = S.pay && S.pay.pay_status !== 'paid' ? 'pay' : S.done ? 'done' : 'main';
+  if (vk !== S.vk) { S.vk = vk; window.scrollTo(0, 0); }
   observeReveal();
 }
 let io = null;
@@ -219,17 +223,19 @@ document.addEventListener('click', async (ev) => {
   else if (act === 'again') { S.done = null; S.time = ''; S.error = ''; await loadSlots(); render(); }
   else if (act === 'retry') { start(); }
   else if (act === 'book') {
-    if ((S.name || '').trim().length < 2) { S.error = t(ERR.bad_name); render(); return; }
-    if (localDigits(S.phone).length < 9) { S.error = t(ERR.bad_phone); render(); return; }
-    if (prepayOn() && !S.svc) { S.error = t(ERR.bad_service); render(); return; }
-    if (prepayOn() && !S.agree) { S.error = t('Подтвердите, что понимаете условия предоплаты.'); render(); return; }
+    if ($('b-name')) S.name = $('b-name').value; if ($('b-phone')) S.phone = $('b-phone').value;
+    const fail = (m) => { S.error = m; render(); const e = $('b-err'); if (e) e.scrollIntoView({ block: 'center', behavior: 'smooth' }); };
+    if ((S.name || '').trim().length < 2) return fail(t(ERR.bad_name));
+    if (localDigits(S.phone).length < 9) return fail(t(ERR.bad_phone));
+    if (prepayOn() && !S.svc) return fail(t(ERR.bad_service));
+    if (prepayOn() && !S.agree) return fail(t('Подтвердите, что понимаете условия предоплаты.'));
     S.busy = true; S.error = ''; render();
     try {
       const res = await rpc('public_book', { p_doctor: S.doctor, p_start: S.day + 'T' + S.time + ':00+05:00', p_name: S.name.trim(), p_phone: cleanPhone(S.phone), p_source: SRC, p_service: prepayOn() ? S.svc : null });
       if (res && res.deposit) { S.pay = { ...res, pay_status: 'pending', snap: { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() } }; savePay(); startPolling(); }
       else S.done = { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() };
     } catch (e) {
-      S.error = errText(e);
+      S.error = errText(e); setTimeout(() => { const el = $('b-err'); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 50);
       if (e.code === 'slot_taken' || e.code === 'slot_unavailable') { S.busy = false; await loadSlots(); S.error = errText(e); }
     }
     S.busy = false; render();
