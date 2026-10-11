@@ -64,16 +64,16 @@ function mapHref() {
   return i.address ? 'https://yandex.com/maps/?text=' + encodeURIComponent(i.address) : '';
 }
 const telLinks = (cls) => (((S.info.info || {}).phones) || []).map((p) => '<a class="' + cls + '" href="tel:' + esc(cleanPhone(p)) + '"><span aria-hidden="true">📞</span> <span class="num">' + esc(fmtPhone(p)) + '</span></a>').join('');
-// строка контактов под заголовком: адрес — заметная кнопка (открывает карту), ориентир, телефоны с подписью
+// адрес: небольшая кнопка (открывает карту), ориентир; ниже — как записаться на приём
 function quickBar() {
   const i = S.info.info || {}, mh = mapHref(), lm = L(i.landmark), ph = (i.phones || []).length;
   if (!i.address && !ph) return '';
   let h = '<div class="quick">';
   if (i.address) {
-    const inner = '<span class="qa"><span aria-hidden="true">📍</span> <b>' + esc(i.address) + '</b></span>' + (lm ? '<span class="ql">🧭 ' + t('Ориентир') + ': ' + esc(lm) + '</span>' : '') + (mh ? '<span class="qh">' + t('Нажмите — откроется карта') + ' <i aria-hidden="true">↗</i></span>' : '');
+    const inner = '<span class="qa"><span aria-hidden="true">📍</span> ' + esc(i.address) + '</span>' + (lm ? '<span class="ql">🧭 ' + t('Ориентир') + ': ' + esc(lm) + '</span>' : '') + (mh ? '<span class="qh">' + t('Нажмите — откроется карта') + ' <i aria-hidden="true">↗</i></span>' : '');
     h += mh ? '<a class="qmap" href="' + esc(mh) + '" target="_blank" rel="noopener">' + inner + '<span class="finger" aria-hidden="true">👆</span></a>' : '<div class="qmap static">' + inner + '</div>';
   }
-  if (ph) h += '<div class="qphones"><span class="qlabel"><span aria-hidden="true">📞</span> ' + t('Запись на приём') + '</span><span class="qrow">' + telLinks('qk') + '</span></div>';
+  if (ph) h += '<div class="howto"><p class="howt">' + t('Как записаться на приём') + '</p><div class="hwrow"><div class="hw"><span class="hwi" aria-hidden="true">📞</span><b>' + t('По телефону') + '</b><span class="qrow">' + telLinks('qk') + '</span></div><div class="hw"><span class="hwi" aria-hidden="true">📱</span><b>' + t('Самостоятельно') + '</b><span class="small">' + t('Выберите день, время и оплатите здесь, в приложении') + '</span></div></div></div>';
   return h + '</div>';
 }
 // «О клинике»: описание одним блоком, преимущества компактными плитками, врачи. Блоки плавно появляются при прокрутке (один раз).
@@ -88,11 +88,6 @@ function aboutBlock() {
         const m = EMO.exec(p), rest = m ? p.slice(m[0].length) : p, cut = rest.indexOf(':'), title = cut > 0 ? rest.slice(0, cut) : rest, desc = cut > 0 ? rest.slice(cut + 1).trim() : '';
         return '<div class="perk ' + rv('perk' + k) + '" style="--i:' + k + '"><span class="pe" aria-hidden="true">' + (m ? m[1] : '✦') + '</span><b>' + esc(title) + '</b>' + (desc ? '<span>' + esc(desc) + '</span>' : '') + '</div>';
       }).join('') + '</div>' : '') + '</div></section>';
-  }
-  const docs = S.info.doctors.filter((d) => L(d.specialty) || L(d.bio));
-  if (docs.length) {
-    h += '<section><h2 class="' + rv('h-docs') + '">' + t('Наши врачи') + '</h2><div class="docs">' + docs.map((d, k) => '<article class="doc ' + rv('doc' + k) + '" style="--i:' + k + '"><span class="av" style="--c:' + esc(d.color) + '">' + esc((d.name || '?').trim().charAt(0).toUpperCase()) + '</span><div class="dtx"><b>' + esc(d.name) + '</b>' +
-      (L(d.specialty) ? '<span class="dsp">' + esc(L(d.specialty)) + '</span>' : '') + (L(d.bio) ? '<p class="small">' + esc(L(d.bio)) + '</p>' : '') + '</div></article>').join('') + '</div></section>';
   }
   return h;
 }
@@ -121,7 +116,9 @@ function payScreen() {
     h += '<p class="timer">⏳ ' + t('Осталось времени') + ': <b class="num" id="timer">' + hhmm(left) + '</b></p><p class="small muted">' + t('Если оплата не придёт вовремя, бронь снимется автоматически.') + '</p>';
     if (st === 'rejected') h += '<p class="alert">' + t('Чек не принят. Проверьте сумму и отправьте фото ещё раз.') + '</p>';
     if (p.err) h += '<p class="alert">' + esc(p.err) + '</p>';
-    h += '<label class="btn camera' + (p.uploading ? ' off' : '') + '"><span aria-hidden="true">📷</span> ' + t(p.uploading ? 'Отправляю…' : 'Сфотографировать и отправить чек') + '<input id="rfile" type="file" accept="image/*" capture="environment" hidden' + (p.uploading ? ' disabled' : '') + '></label>';
+    const off = p.uploading ? ' disabled' : '';
+    h += '<div class="rcpick"><label class="btn camera' + (p.uploading ? ' off' : '') + '"><span aria-hidden="true">📷</span> ' + t(p.uploading ? 'Отправляю…' : 'Сфотографировать чек') + '<input id="rfile" type="file" accept="image/*" capture="environment" hidden' + off + '></label>' +
+      '<label class="btn ghost gal' + (p.uploading ? ' off' : '') + '"><span aria-hidden="true">🖼</span> ' + t('Выбрать скриншот или фото из галереи') + '<input id="rfile2" type="file" accept="image/*" hidden' + off + '></label></div>';
     if (tg || p.receipt_contact) h += '<p class="small muted">' + t('Или отправьте чек в Telegram: {c}', { c: '' }) + (tg ? '<a href="' + esc(tg) + '" target="_blank" rel="noopener">' + esc(p.receipt_contact) + '</a>' : esc(p.receipt_contact)) + '</p>';
   } else if (st === 'review') {
     h += '<div class="reviewing"><span class="spin" aria-hidden="true"></span><p>' + t('Чек отправлен. Сотрудник проверяет оплату, это займёт несколько минут. Не закрывайте страницу.') + '</p><p class="small muted">' + t('Если закроете страницу, запись сохранится, а клиника свяжется с вами по номеру телефона.') + '</p></div>';
@@ -253,7 +250,7 @@ document.addEventListener('click', async (ev) => {
 document.addEventListener('change', async (ev) => {
   const el = ev.target;
   if (el.id === 'b-agree') { S.agree = el.checked; return; }
-  if (el.id === 'rfile' && el.files && el.files[0]) { const f = el.files[0]; el.value = ''; await sendReceipt(f); }
+  if ((el.id === 'rfile' || el.id === 'rfile2') && el.files && el.files[0]) { const f = el.files[0]; el.value = ''; await sendReceipt(f); }
 });
 document.addEventListener('input', (ev) => {
   if (ev.target.id === 'b-name') S.name = ev.target.value;
