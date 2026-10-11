@@ -538,3 +538,34 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;text
 .rv.in{opacity:1;transform:none}
 .hero-wrap::after{content:"💗";display:block;text-align:center;font-size:26px;margin-top:10px;animation:beat 2.6s ease-in-out infinite;filter:drop-shadow(0 0 10px rgba(255,100,110,.8))}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.rv{opacity:1;transform:none}}
+
+/* ===== Навбат: адрес-кнопка с подсказкой, телефоны с подписью, цельное «О клинике» ===== */
+.langmenu{position:absolute;top:44px;right:0;z-index:20;display:flex;flex-direction:column;min-width:130px;background:rgba(30,10,18,.92);border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.5);overflow:hidden;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.langmenu button{font:inherit;text-align:left;padding:11px 14px;border:0;background:none;color:var(--ink);cursor:pointer}
+.langmenu button[aria-pressed="true"]{background:rgba(255,127,95,.22);font-weight:600}
+.quick{flex-direction:column;align-items:stretch;gap:14px}
+.qmap{position:relative;display:flex;flex-direction:column;gap:4px;padding:14px 16px 16px;border:1.5px solid rgba(255,190,170,.7);border-radius:16px;background:rgba(255,255,255,.1);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:var(--ink);text-decoration:none;animation:qpulse 2.6s ease-in-out infinite}
+.qmap .qa{font-size:15px;line-height:1.35}
+.qmap .ql{font-size:13px;color:var(--muted)}
+.qmap .qh{margin-top:4px;font-size:12px;font-weight:600;color:#ffd7c9;letter-spacing:.02em}
+.qmap .qh i{font-style:normal;display:inline-block;animation:nudge 1.3s ease-in-out infinite}
+.finger{position:absolute;right:14px;bottom:-16px;font-size:28px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.5));animation:tap 1.5s ease-in-out infinite;pointer-events:none}
+.qphones{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:6px}
+.qlabel{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.qrow{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+@keyframes qpulse{0%,100%{box-shadow:0 0 0 0 rgba(255,140,110,.45)}50%{box-shadow:0 0 0 10px rgba(255,140,110,0)}}
+@keyframes tap{0%,100%{transform:translate(0,0) rotate(-12deg)}45%{transform:translate(-6px,-10px) rotate(-12deg)}60%{transform:translate(-6px,-6px) rotate(-12deg) scale(.92)}}
+@keyframes nudge{0%,100%{transform:translate(0,0)}50%{transform:translate(3px,-3px)}}
+.aboutcard{display:flex;flex-direction:column;gap:16px;padding:18px;border:1px solid var(--line);border-radius:18px;background:var(--surface);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.aboutcard .lead{font-size:15px;line-height:1.6}
+.perks2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 10px;padding-top:14px;border-top:1px dashed var(--line)}
+.perk{display:flex;flex-direction:column;gap:3px;font-size:12.5px;line-height:1.35;color:var(--muted)}
+.perk b{font-size:13.5px;font-weight:600;color:var(--ink)}
+.perk .pe{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:rgba(255,127,95,.18);font-size:20px;margin-bottom:4px}
+.docs{display:grid;gap:10px}
+.doc{display:flex;gap:12px;align-items:flex-start;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--surface);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.av{flex:none;display:grid;place-items:center;width:46px;height:46px;border-radius:50%;background:var(--c,#bd5a17);color:#fff;font-weight:700;font-size:19px;box-shadow:0 0 0 3px rgba(255,255,255,.14)}
+.dtx{display:flex;flex-direction:column;gap:3px;min-width:0}.dtx b{font-size:16px}
+.dsp{align-self:flex-start;font-size:12px;padding:2px 10px;border-radius:999px;background:rgba(255,127,95,.18);color:#ffd7c9}
+@media (prefers-reduced-motion:reduce){.qmap,.finger,.qmap .qh i{animation:none!important}}
+.doc{flex-direction:row}

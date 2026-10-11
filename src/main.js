@@ -12,7 +12,7 @@ import './style.css';
 import bgUrl from './assets/bg.jpg';
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
 import { fmtPhoneInput, fmtPhone, cleanPhone, localDigits } from './phone.js';
-import { t, getLang, setLang, weekdays, weekdaysFull, monthsGen, months } from './i18n.js';
+import { t, getLang, setLang, weekdays, weekdaysFull, monthsGen, months, pick, pickList, brand } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 const TZ = 5 * 3600e3;
@@ -46,7 +46,7 @@ const dayFull = (d) => weekdaysFull()[isoDow(d) - 1] + ', ' + +d.slice(8, 10) + 
 const docWorks = (d, day) => !day || (d.work_days || S.info.work_days).indexOf(isoDow(day)) >= 0;
 const docName = (id) => (S.info.doctors.filter((d) => d.id === id)[0] || { name: '' }).name;
 
-const L = (o) => (o && (o[getLang()] || o.ru)) || '';
+const L = (o) => pick(o);
 const nextYm = (ym) => { const y = +ym.slice(0, 4), mo = +ym.slice(5, 7); return mo === 12 ? (y + 1) + '-01' : y + '-' + String(mo + 1).padStart(2, '0'); };
 function mapHref() {
   const i = (S.info && S.info.info) || {};
@@ -55,30 +55,35 @@ function mapHref() {
   return i.address ? 'https://yandex.com/maps/?text=' + encodeURIComponent(i.address) : '';
 }
 const telLinks = (cls) => (((S.info.info || {}).phones) || []).map((p) => '<a class="' + cls + '" href="tel:' + esc(cleanPhone(p)) + '"><span aria-hidden="true">📞</span> <span class="num">' + esc(fmtPhone(p)) + '</span></a>').join('');
-// быстрая строка контактов под заголовком: адрес (карта) и телефоны
+// строка контактов под заголовком: адрес — заметная кнопка (открывает карту), ориентир, телефоны с подписью
 function quickBar() {
-  const i = S.info.info || {}, mh = mapHref();
-  if (!i.address && !(i.phones || []).length) return '';
-  return '<div class="quick">' + (i.address ? (mh ? '<a class="qk" href="' + esc(mh) + '" target="_blank" rel="noopener"><span aria-hidden="true">📍</span> ' + esc(i.address) + '</a>' : '<span class="qk"><span aria-hidden="true">📍</span> ' + esc(i.address) + '</span>') : '') + telLinks('qk') + '</div>';
+  const i = S.info.info || {}, mh = mapHref(), lm = L(i.landmark), ph = (i.phones || []).length;
+  if (!i.address && !ph) return '';
+  let h = '<div class="quick">';
+  if (i.address) {
+    const inner = '<span class="qa"><span aria-hidden="true">📍</span> <b>' + esc(i.address) + '</b></span>' + (lm ? '<span class="ql">🧭 ' + t('Ориентир') + ': ' + esc(lm) + '</span>' : '') + (mh ? '<span class="qh">' + t('Нажмите — откроется карта') + ' <i aria-hidden="true">↗</i></span>' : '');
+    h += mh ? '<a class="qmap" href="' + esc(mh) + '" target="_blank" rel="noopener">' + inner + '<span class="finger" aria-hidden="true">👆</span></a>' : '<div class="qmap static">' + inner + '</div>';
+  }
+  if (ph) h += '<div class="qphones"><span class="qlabel"><span aria-hidden="true">📞</span> ' + t('Запись на приём') + '</span><span class="qrow">' + telLinks('qk') + '</span></div>';
+  return h + '</div>';
 }
-// «О клинике»: описание, преимущества, врачи, контакты. Блоки плавно появляются при прокрутке (один раз).
+// «О клинике»: описание одним блоком, преимущества компактными плитками, врачи. Блоки плавно появляются при прокрутке (один раз).
+const EMO = /^(\p{Extended_Pictographic}[\uFE0F\u200D\p{Extended_Pictographic}]*)\s*/u;
 function aboutBlock() {
   const i = S.info.info || {}, rv = (k) => 'rv' + (S.seen[k] ? ' in' : '') + '" data-rv="' + k;
   let h = '';
-  const about = L(i.about), perks = (i.perks && (i.perks[getLang()] || i.perks.ru)) || [];
+  const about = L(i.about), perks = pickList(i.perks);
   if (about || perks.length) {
-    h += '<section class="about"><h2 class="' + rv('h-about') + '">' + t('О клинике') + '</h2>' + (about ? '<p class="' + rv('p-about') + '">' + esc(about) + '</p>' : '') +
-      (perks.length ? '<ul class="perks">' + perks.map((p, k) => '<li class="' + rv('perk' + k) + '" style="--i:' + k + '">' + esc(p) + '</li>').join('') + '</ul>' : '') + '</section>';
+    h += '<section class="about"><h2 class="' + rv('h-about') + '">' + t('О клинике') + '</h2><div class="aboutcard ' + rv('card-about') + '">' + (about ? '<p class="lead">' + esc(about) + '</p>' : '') +
+      (perks.length ? '<div class="perks2">' + perks.map((p, k) => {
+        const m = EMO.exec(p), rest = m ? p.slice(m[0].length) : p, cut = rest.indexOf(':'), title = cut > 0 ? rest.slice(0, cut) : rest, desc = cut > 0 ? rest.slice(cut + 1).trim() : '';
+        return '<div class="perk ' + rv('perk' + k) + '" style="--i:' + k + '"><span class="pe" aria-hidden="true">' + (m ? m[1] : '✦') + '</span><b>' + esc(title) + '</b>' + (desc ? '<span>' + esc(desc) + '</span>' : '') + '</div>';
+      }).join('') + '</div>' : '') + '</div></section>';
   }
   const docs = S.info.doctors.filter((d) => L(d.specialty) || L(d.bio));
   if (docs.length) {
-    h += '<section><h2 class="' + rv('h-docs') + '">' + t('Наши врачи') + '</h2><div class="docs">' + docs.map((d, k) => '<article class="doc ' + rv('doc' + k) + '" style="--i:' + k + '"><div class="doc-h"><i class="dot" style="--c:' + esc(d.color) + '"></i><b>' + esc(d.name) + '</b></div>' +
-      (L(d.specialty) ? '<span class="small muted">' + esc(L(d.specialty)) + '</span>' : '') + (L(d.bio) ? '<p class="small">' + esc(L(d.bio)) + '</p>' : '') + '</article>').join('') + '</div></section>';
-  }
-  const mh = mapHref();
-  if (i.address || (i.phones || []).length) {
-    h += '<section><h2 class="' + rv('h-contact') + '">' + t('Как нас найти') + '</h2><div class="panel contact ' + rv('contact') + '">' + (i.address ? '<p>📍 ' + esc(i.address) + '</p>' : '') +
-      '<div class="row">' + (mh ? '<a class="btn" href="' + esc(mh) + '" target="_blank" rel="noopener">' + t('Открыть карту') + '</a>' : '') + telLinks('btn ghost') + '</div></div></section>';
+    h += '<section><h2 class="' + rv('h-docs') + '">' + t('Наши врачи') + '</h2><div class="docs">' + docs.map((d, k) => '<article class="doc ' + rv('doc' + k) + '" style="--i:' + k + '"><span class="av" style="--c:' + esc(d.color) + '">' + esc((d.name || '?').trim().charAt(0).toUpperCase()) + '</span><div class="dtx"><b>' + esc(d.name) + '</b>' +
+      (L(d.specialty) ? '<span class="dsp">' + esc(L(d.specialty)) + '</span>' : '') + (L(d.bio) ? '<p class="small">' + esc(L(d.bio)) + '</p>' : '') + '</div></article>').join('') + '</div></section>';
   }
   return h;
 }
@@ -133,9 +138,10 @@ function view() {
 }
 
 function render() {
-  document.title = '«Митти юракча»: ' + t('Очередь');
+  document.title = brand() + ': ' + t('Очередь'); document.querySelector('.hero-title').textContent = brand();
   $('hero-sub').textContent = t('Очередь: онлайн-запись на УЗИ');
-  $('lang').textContent = getLang() === 'uz' ? 'РУ' : 'ЎЗ';
+  $('lang').textContent = { ru: 'РУ', uz: 'ЎЗ', uzl: 'UZ' }[getLang()];
+  document.querySelectorAll('#langmenu button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === getLang())));
   const sl = S.info && S.info.info ? L(S.info.info.slogan) : '';
   $('slogan').textContent = sl; $('slogan').hidden = !sl;
   $('app').dataset.fresh = S.fresh; S.fresh = '';
@@ -159,7 +165,10 @@ async function loadSlots() {
 }
 
 document.addEventListener('click', async (ev) => {
-  if (ev.target.closest('#lang')) { setLang(getLang() === 'uz' ? 'ru' : 'uz'); render(); return; }
+  const lm = $('langmenu');
+  if (ev.target.closest('#lang')) { lm.hidden = !lm.hidden; return; }
+  if (!ev.target.closest('#langmenu')) lm.hidden = true;
+  const lb = ev.target.closest('[data-act=lang-set]'); if (lb) { setLang(lb.dataset.id); lm.hidden = true; render(); return; }
   const b = ev.target.closest('[data-act]'); if (!b) return;
   const act = b.dataset.act, id = b.dataset.id;
   if (act === 'day') { S.day = id; S.error = ''; await loadSlots(); }
