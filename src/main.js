@@ -115,14 +115,16 @@ function payScreen() {
     '<div class="cardbox"><span class="small muted">' + t('Карта') + '</span><b class="num cardnum">' + esc(p.card_number) + '</b>' + (p.card_holder ? '<span class="small muted">' + t('Владелец карты') + ': ' + esc(p.card_holder) + '</span>' : '') +
     '<button type="button" class="btn ghost small" data-act="copy">' + t('Скопировать') + '</button></div>' +
     '<ul class="list"><li><div class="li-main"><b>' + t('Дата') + '</b></div><span>' + esc(dayFull(p.snap.day)) + ' · ' + p.snap.time + '</span></li><li><div class="li-main"><b>' + t('Врач') + '</b></div><span>' + esc(docName(p.snap.doctor)) + '</span></li></ul>';
-  if (st === 'pending' || st === 'rejected') {
+  if (p.cancelled && st !== 'expired') {
+    h += '<p class="alert">' + t('Запись отменена клиникой. Если это ошибка, позвоните нам.') + '</p><div class="row"><button class="btn" data-act="again-pay">' + t('Выбрать время заново') + '</button></div>';
+  } else if (st === 'pending' || st === 'rejected') {
     h += '<p class="timer">⏳ ' + t('Осталось времени') + ': <b class="num" id="timer">' + hhmm(left) + '</b></p><p class="small muted">' + t('Если оплата не придёт вовремя, бронь снимется автоматически.') + '</p>';
     if (st === 'rejected') h += '<p class="alert">' + t('Чек не принят. Проверьте сумму и отправьте фото ещё раз.') + '</p>';
     if (p.err) h += '<p class="alert">' + esc(p.err) + '</p>';
     h += '<label class="btn camera' + (p.uploading ? ' off' : '') + '"><span aria-hidden="true">📷</span> ' + t(p.uploading ? 'Отправляю…' : 'Сфотографировать и отправить чек') + '<input id="rfile" type="file" accept="image/*" capture="environment" hidden' + (p.uploading ? ' disabled' : '') + '></label>';
     if (tg || p.receipt_contact) h += '<p class="small muted">' + t('Или отправьте чек в Telegram: {c}', { c: '' }) + (tg ? '<a href="' + esc(tg) + '" target="_blank" rel="noopener">' + esc(p.receipt_contact) + '</a>' : esc(p.receipt_contact)) + '</p>';
   } else if (st === 'review') {
-    h += '<div class="reviewing"><span class="spin" aria-hidden="true"></span><p>' + t('Чек отправлен. Сотрудник проверяет оплату, это займёт несколько минут. Не закрывайте страницу.') + '</p></div>';
+    h += '<div class="reviewing"><span class="spin" aria-hidden="true"></span><p>' + t('Чек отправлен. Сотрудник проверяет оплату, это займёт несколько минут. Не закрывайте страницу.') + '</p><p class="small muted">' + t('Если закроете страницу, запись сохранится, а клиника свяжется с вами по номеру телефона.') + '</p></div>';
   } else { // expired
     h += '<p class="alert">' + t('Время на оплату вышло, бронь снята.') + '</p><div class="row"><button class="btn" data-act="again-pay">' + t('Выбрать время заново') + '</button></div>';
   }
@@ -290,6 +292,7 @@ async function pollPay() {
   const p = S.pay; if (!p) return;
   try {
     const j = await rpc('public_booking_status', { p_id: p.id, p_token: p.token });
+    if ((j.status === 'cancelled') !== !!p.cancelled) { p.cancelled = j.status === 'cancelled'; savePay(); }
     if (j.pay_status !== p.pay_status || j.hold_until !== p.hold_until) { p.pay_status = j.pay_status; p.hold_until = j.hold_until || p.hold_until; savePay(); }
     if (j.pay_status === 'paid') { S.done = { ...p.snap, paid: true }; S.pay = null; savePay(); stopPolling(); }
     render();
