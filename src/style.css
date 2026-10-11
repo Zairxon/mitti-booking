@@ -600,3 +600,6 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;text
 .errbox{padding:11px 13px;border:1.5px solid rgba(255,157,143,.7);border-radius:12px;background:rgba(255,110,90,.16);color:#ffe2db;font-size:14px;font-weight:500;animation:shake .4s}
 @keyframes shake{0%,100%{transform:none}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
 .settabs{margin-bottom:6px}
+
+#toast{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:50;max-width:520px;margin:0 auto;padding:13px 16px;border-radius:14px;background:rgba(60,14,22,.96);border:1.5px solid rgba(255,157,143,.7);color:#ffe9e3;font-size:14px;line-height:1.4;box-shadow:0 10px 30px rgba(0,0,0,.5);opacity:0;transform:translateY(20px);pointer-events:none;transition:opacity .25s,transform .25s}
+#toast.show{opacity:1;transform:none}

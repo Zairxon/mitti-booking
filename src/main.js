@@ -37,9 +37,16 @@ const ERR = {
   slot_unavailable: 'Это время недоступно. Выберите другое.',
   bad_name: 'Укажите имя (не короче 2 букв).',
   bad_phone: 'Проверьте номер телефона.',
-  too_many: 'У вас уже есть несколько записей. Позвоните в клинику, чтобы записаться ещё.',
+  too_many: 'У вас уже есть 3 активные записи на этот номер. Отмените ненужную в боте или позвоните в клинику.',
   bad_service: 'Выберите услугу.',
 };
+// Всплывающее сообщение внизу экрана: видно, где бы ни была прокручена страница
+function toast(msg) {
+  let el = $('toast'); if (!el) { el = document.createElement('div'); el.id = 'toast'; el.setAttribute('role', 'alert'); document.body.appendChild(el); }
+  el.textContent = msg; el.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 7000);
+}
+window.addEventListener('error', (e) => toast(t('Что-то пошло не так') + ': ' + (e.message || '')));
+window.addEventListener('unhandledrejection', (e) => toast(t('Что-то пошло не так') + ': ' + ((e.reason && e.reason.message) || '')));
 const errText = (e) => (ERR[e.code] ? t(ERR[e.code]) : t('Нет связи. Попробуйте ещё раз.'));
 
 function workDays() { const out = []; for (let i = 0; i <= S.info.days_ahead; i++) { const d = addDays(todayTz(), i); if (S.info.work_days.indexOf(isoDow(d)) >= 0) out.push(d); } return out; }
@@ -224,7 +231,7 @@ document.addEventListener('click', async (ev) => {
   else if (act === 'retry') { start(); }
   else if (act === 'book') {
     if ($('b-name')) S.name = $('b-name').value; if ($('b-phone')) S.phone = $('b-phone').value;
-    const fail = (m) => { S.error = m; render(); const e = $('b-err'); if (e) e.scrollIntoView({ block: 'center', behavior: 'smooth' }); };
+    const fail = (m) => { S.error = m; toast(m); render(); const e = $('b-err'); if (e) e.scrollIntoView({ block: 'center', behavior: 'smooth' }); };
     if ((S.name || '').trim().length < 2) return fail(t(ERR.bad_name));
     if (localDigits(S.phone).length < 9) return fail(t(ERR.bad_phone));
     if (prepayOn() && !S.svc) return fail(t(ERR.bad_service));
@@ -235,8 +242,8 @@ document.addEventListener('click', async (ev) => {
       if (res && res.deposit) { S.pay = { ...res, pay_status: 'pending', snap: { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() } }; savePay(); startPolling(); }
       else S.done = { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() };
     } catch (e) {
-      S.error = errText(e); setTimeout(() => { const el = $('b-err'); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 50);
-      if (e.code === 'slot_taken' || e.code === 'slot_unavailable') { S.busy = false; await loadSlots(); S.error = errText(e); }
+      S.error = errText(e); toast(S.error); setTimeout(() => { const el = $('b-err'); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 50);
+      if (e.code === 'slot_taken' || e.code === 'slot_unavailable') { S.busy = false; await loadSlots(); S.error = errText(e); toast(S.error); const al = document.querySelector('.alert'); if (al) al.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
     }
     S.busy = false; render();
   }
