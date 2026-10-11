@@ -11,6 +11,7 @@ import '@fontsource/jetbrains-mono/latin-400.css';
 import './style.css';
 import bgUrl from './assets/bg.jpg';
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
+import { fmtPhoneInput, fmtPhone, cleanPhone, localDigits } from './phone.js';
 import { t, getLang, setLang, weekdays, weekdaysFull, monthsGen, months } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
@@ -21,7 +22,7 @@ const isoDow = (d) => { const x = new Date(d + 'T00:00:00Z').getUTCDay(); return
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const SRC = new URLSearchParams(location.search).get('src') === 'bot' ? 'bot' : 'site';
 
-const S = { days: null, info: null, day: '', doctor: '', time: '', slots: null, loading: false, name: '', phone: '', busy: false, done: null, error: '' };
+const S = { fresh: '', seen: {}, days: null, info: null, day: '', doctor: '', time: '', slots: null, loading: false, name: '', phone: '', busy: false, done: null, error: '' };
 
 /* вызов публичных функций базы: они отдают только свободное время и принимают запись */
 async function rpc(fn, args) {
@@ -45,6 +46,43 @@ const dayFull = (d) => weekdaysFull()[isoDow(d) - 1] + ', ' + +d.slice(8, 10) + 
 const docWorks = (d, day) => !day || (d.work_days || S.info.work_days).indexOf(isoDow(day)) >= 0;
 const docName = (id) => (S.info.doctors.filter((d) => d.id === id)[0] || { name: '' }).name;
 
+const L = (o) => (o && (o[getLang()] || o.ru)) || '';
+const nextYm = (ym) => { const y = +ym.slice(0, 4), mo = +ym.slice(5, 7); return mo === 12 ? (y + 1) + '-01' : y + '-' + String(mo + 1).padStart(2, '0'); };
+function mapHref() {
+  const i = (S.info && S.info.info) || {};
+  if (i.map_url) return i.map_url;
+  if (i.lat != null && i.lng != null) return 'https://yandex.com/maps/?pt=' + i.lng + ',' + i.lat + '&z=17&l=map';
+  return i.address ? 'https://yandex.com/maps/?text=' + encodeURIComponent(i.address) : '';
+}
+const telLinks = (cls) => (((S.info.info || {}).phones) || []).map((p) => '<a class="' + cls + '" href="tel:' + esc(cleanPhone(p)) + '"><span aria-hidden="true">📞</span> <span class="num">' + esc(fmtPhone(p)) + '</span></a>').join('');
+// быстрая строка контактов под заголовком: адрес (карта) и телефоны
+function quickBar() {
+  const i = S.info.info || {}, mh = mapHref();
+  if (!i.address && !(i.phones || []).length) return '';
+  return '<div class="quick">' + (i.address ? (mh ? '<a class="qk" href="' + esc(mh) + '" target="_blank" rel="noopener"><span aria-hidden="true">📍</span> ' + esc(i.address) + '</a>' : '<span class="qk"><span aria-hidden="true">📍</span> ' + esc(i.address) + '</span>') : '') + telLinks('qk') + '</div>';
+}
+// «О клинике»: описание, преимущества, врачи, контакты. Блоки плавно появляются при прокрутке (один раз).
+function aboutBlock() {
+  const i = S.info.info || {}, rv = (k) => 'rv' + (S.seen[k] ? ' in' : '') + '" data-rv="' + k;
+  let h = '';
+  const about = L(i.about), perks = (i.perks && (i.perks[getLang()] || i.perks.ru)) || [];
+  if (about || perks.length) {
+    h += '<section class="about"><h2 class="' + rv('h-about') + '">' + t('О клинике') + '</h2>' + (about ? '<p class="' + rv('p-about') + '">' + esc(about) + '</p>' : '') +
+      (perks.length ? '<ul class="perks">' + perks.map((p, k) => '<li class="' + rv('perk' + k) + '" style="--i:' + k + '">' + esc(p) + '</li>').join('') + '</ul>' : '') + '</section>';
+  }
+  const docs = S.info.doctors.filter((d) => L(d.specialty) || L(d.bio));
+  if (docs.length) {
+    h += '<section><h2 class="' + rv('h-docs') + '">' + t('Наши врачи') + '</h2><div class="docs">' + docs.map((d, k) => '<article class="doc ' + rv('doc' + k) + '" style="--i:' + k + '"><div class="doc-h"><i class="dot" style="--c:' + esc(d.color) + '"></i><b>' + esc(d.name) + '</b></div>' +
+      (L(d.specialty) ? '<span class="small muted">' + esc(L(d.specialty)) + '</span>' : '') + (L(d.bio) ? '<p class="small">' + esc(L(d.bio)) + '</p>' : '') + '</article>').join('') + '</div></section>';
+  }
+  const mh = mapHref();
+  if (i.address || (i.phones || []).length) {
+    h += '<section><h2 class="' + rv('h-contact') + '">' + t('Как нас найти') + '</h2><div class="panel contact ' + rv('contact') + '">' + (i.address ? '<p>📍 ' + esc(i.address) + '</p>' : '') +
+      '<div class="row">' + (mh ? '<a class="btn" href="' + esc(mh) + '" target="_blank" rel="noopener">' + t('Открыть карту') + '</a>' : '') + telLinks('btn ghost') + '</div></div></section>';
+  }
+  return h;
+}
+
 function view() {
   if (S.error && !S.info) return '<section><div class="panel"><p class="alert">' + esc(S.error) + '</p><div class="row"><button class="btn" data-act="retry">' + t('Повторить') + '</button></div></div></section>';
   if (!S.info) return '<p class="empty">' + t('Загрузка…') + '</p>';
@@ -57,19 +95,19 @@ function view() {
       '<p class="note">' + t('Пожалуйста, приходите за 5 минут до приёма. Если планы изменились, позвоните в клинику, чтобы отменить запись.') + '</p>' +
       '<div class="row"><button class="btn ghost" data-act="again">' + t('Записать ещё') + '</button></div></div></section>';
   }
-  // дни неделями: заголовок Пн–Вс, ряды по семь, нажимаются только дни со свободным временем
+  // дни неделями: заголовок Пн–Вс, ряды по семь, каждый месяц отдельным блоком; нажимаются только дни со свободным временем
   const today = todayTz(), last = addDays(today, S.info.days_ahead), wd = weekdays();
   const open = (d) => d >= today && d <= last && S.info.work_days.indexOf(isoDow(d)) >= 0 && (!S.days || S.days[d] > 0 || S.days[d] === undefined);
-  let cells = wd.map((w) => '<span class="wd">' + w + '</span>').join('');
-  for (let wk = addDays(today, -(isoDow(today) - 1)); wk <= last; wk = addDays(wk, 7)) {
-    if (![0, 1, 2, 3, 4, 5, 6].some((i) => open(addDays(wk, i)))) continue; // неделя без свободных дней не показывается
-    for (let i = 0; i < 7; i++) {
-      const d = addDays(wk, i);
-      cells += open(d) ? '<button type="button" class="pill dayp" data-act="day" data-id="' + d + '" aria-pressed="' + (S.day === d) + '" aria-label="' + esc(dayFull(d)) + '">' + +d.slice(8, 10) + '</button>' : '<span class="dayp off" aria-hidden="true">·</span>';
-    }
+  let cal = '';
+  for (let ym = today.slice(0, 7); ym <= last.slice(0, 7); ym = nextYm(ym)) {
+    const first = ym + '-01', dim = new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5, 7), 0)).getUTCDate(), days = [];
+    for (let k = 0; k < dim; k++) days.push(addDays(first, k));
+    if (!days.some(open)) continue;
+    let cells = wd.map((w) => '<span class="wd">' + w + '</span>').join('') + '<span class="dayp off"></span>'.repeat(isoDow(first) - 1);
+    days.forEach((d) => { cells += open(d) ? '<button type="button" class="pill dayp" data-act="day" data-id="' + d + '" aria-pressed="' + (S.day === d) + '" aria-label="' + esc(dayFull(d)) + '">' + +d.slice(8, 10) + '</button>' : '<span class="dayp off" aria-hidden="true">·</span>'; });
+    cal += '<div class="mblock"><p class="mname">' + esc(months()[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4)) + '</p><div class="cal7">' + cells + '</div></div>';
   }
-  const mn = (d) => months()[+d.slice(5, 7) - 1], monthText = today.slice(0, 7) === last.slice(0, 7) ? mn(today) + ' ' + today.slice(0, 4) : mn(today) + ' — ' + mn(last) + ' ' + last.slice(0, 4);
-  let h = '<section><h2>1. ' + t('Выберите день') + '</h2><p class="monthline">' + esc(monthText) + '</p><div class="cal7">' + cells + '</div></section>';
+  let h = quickBar() + '<section><h2>1. ' + t('Выберите день') + '</h2><div class="months">' + cal + '</div></section>';
   h += '<section><h2>2. ' + t('Выберите врача') + '</h2><div class="pills">' + S.info.doctors.map((d) => '<button type="button" class="pill" data-act="doctor" data-id="' + esc(d.id) + '" aria-pressed="' + (S.doctor === d.id) + '"' + (docWorks(d, S.day) ? '' : ' disabled title="' + esc(t('В этот день не работает')) + '"') + '><i class="dot" style="--c:' + esc(d.color) + '"></i>' + esc(d.name) + '</button>').join('') + '</div></section>';
   h += '<section><h2>3. ' + t('Выберите время') + '</h2>';
   if (S.error && !S.time) h += '<p class="alert">' + esc(S.error) + '</p>';
@@ -79,26 +117,37 @@ function view() {
     const free = (S.slots && S.slots[S.doctor]) || [];
     const dd = S.info.doctors.filter((x) => x.id === S.doctor)[0];
     if (dd && !docWorks(dd, S.day)) h += '<p class="empty">' + t('Врач в этот день не работает. Выберите другой день или врача.') + '</p>'; else
-    h += free.length ? '<div class="times">' + free.map((x) => '<button type="button" class="pill tslot" data-act="time" data-id="' + x + '" aria-pressed="' + (S.time === x) + '">' + x + '</button>').join('') + '</div>' : '<p class="empty">' + t('На этот день свободного времени нет. Выберите другой день или врача.') + '</p>';
+    h += free.length ? '<div class="times">' + free.map((x, k) => '<button type="button" class="pill tslot" style="--k:' + k + '" data-act="time" data-id="' + x + '" aria-pressed="' + (S.time === x) + '">' + x + '</button>').join('') + '</div>' : '<p class="empty">' + t('На этот день свободного времени нет. Выберите другой день или врача.') + '</p>';
   }
   h += '</section>';
   if (S.time) {
     h += '<section><h2>4. ' + t('Ваши данные') + '</h2><div class="panel">' +
       '<div class="fld"><span>' + t('Ваше имя') + '</span><input id="b-name" type="text" autocomplete="name" value="' + esc(S.name) + '"></div>' +
-      '<div class="fld"><span>' + t('Телефон') + '</span><input id="b-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+998 90 123 45 67" value="' + esc(S.phone) + '"></div>' +
+      '<div class="fld"><span>' + t('Телефон') + '</span><input id="b-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+998 90 123 45 67" maxlength="17" value="' + esc(S.phone) + '"></div>' +
       '<p class="small muted">' + esc(dayFull(S.day)) + ' · <b>' + S.time + '</b> · ' + esc(docName(S.doctor)) + '</p>' +
       (S.error ? '<p class="alert">' + esc(S.error) + '</p>' : '') +
       '<div class="row"><button class="btn" data-act="book"' + (S.busy ? ' disabled' : '') + '>' + t('Записаться') + '</button></div></div>' +
       '<p class="note">' + t('Нажимая «Записаться», вы соглашаетесь, что клиника свяжется с вами по этому номеру.') + '</p></section>';
   }
-  return h;
+  return h + aboutBlock();
 }
 
 function render() {
   document.title = '«Митти юракча»: ' + t('Очередь');
   $('hero-sub').textContent = t('Очередь: онлайн-запись на УЗИ');
   $('lang').textContent = getLang() === 'uz' ? 'РУ' : 'ЎЗ';
+  const sl = S.info && S.info.info ? L(S.info.info.slogan) : '';
+  $('slogan').textContent = sl; $('slogan').hidden = !sl;
+  $('app').dataset.fresh = S.fresh; S.fresh = '';
   $('app').innerHTML = view();
+  observeReveal();
+}
+let io = null;
+function observeReveal() {
+  const els = document.querySelectorAll('.rv:not(.in)'); if (!els.length) return;
+  if (!('IntersectionObserver' in window)) { els.forEach((e) => { e.classList.add('in'); S.seen[e.dataset.rv] = 1; }); return; }
+  if (!io) io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); S.seen[e.target.dataset.rv] = 1; io.unobserve(e.target); } }), { threshold: 0.15 });
+  els.forEach((e) => io.observe(e));
 }
 
 async function loadDays() { try { S.days = await rpc('public_days'); } catch (e) { S.days = null; } }
@@ -106,7 +155,7 @@ async function loadSlots() {
   if (!S.day || !S.doctor) { render(); return; }
   S.loading = true; S.time = ''; render();
   try { S.slots = await rpc('public_slots', { p_date: S.day }); S.error = ''; } catch (e) { S.slots = {}; S.error = errText(e); }
-  S.loading = false; render();
+  S.loading = false; S.fresh = 'slots'; render();
 }
 
 document.addEventListener('click', async (ev) => {
@@ -120,10 +169,10 @@ document.addEventListener('click', async (ev) => {
   else if (act === 'retry') { start(); }
   else if (act === 'book') {
     if ((S.name || '').trim().length < 2) { S.error = t(ERR.bad_name); render(); return; }
-    if ((S.phone || '').replace(/\D/g, '').length < 9) { S.error = t(ERR.bad_phone); render(); return; }
+    if (localDigits(S.phone).length < 9) { S.error = t(ERR.bad_phone); render(); return; }
     S.busy = true; S.error = ''; render();
     try {
-      await rpc('public_book', { p_doctor: S.doctor, p_start: S.day + 'T' + S.time + ':00+05:00', p_name: S.name.trim(), p_phone: S.phone.trim(), p_source: SRC });
+      await rpc('public_book', { p_doctor: S.doctor, p_start: S.day + 'T' + S.time + ':00+05:00', p_name: S.name.trim(), p_phone: cleanPhone(S.phone), p_source: SRC });
       S.done = { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() };
     } catch (e) {
       S.error = errText(e);
@@ -134,8 +183,10 @@ document.addEventListener('click', async (ev) => {
 });
 document.addEventListener('input', (ev) => {
   if (ev.target.id === 'b-name') S.name = ev.target.value;
-  if (ev.target.id === 'b-phone') S.phone = ev.target.value;
+  if (ev.target.id === 'b-phone') { const el = ev.target, del = !!(ev.inputType && ev.inputType.indexOf('delete') === 0); el.value = fmtPhoneInput(el.value, del); S.phone = el.value; }
 });
+document.addEventListener('focusin', (ev) => { const el = ev.target; if (el.id === 'b-phone' && !el.value) { el.value = '+998 '; S.phone = el.value; } });
+document.addEventListener('focusout', (ev) => { const el = ev.target; if (el.id === 'b-phone' && localDigits(el.value) === '') { el.value = ''; S.phone = ''; } });
 
 async function start() {
   render();
