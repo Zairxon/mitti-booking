@@ -702,3 +702,11 @@ h2.stp i{width:24px!important;height:24px!important;font-size:13px!important}
 [data-tour=data] .agree input{width:22px!important;height:22px!important}
 [data-tour=data]+.note{font-size:14px!important;line-height:1.45}
 [data-tour=data] .btn{min-height:48px!important;font-size:16px!important}
+/* ещё меньше: блок «Ваши данные» почти как был, лишь чуть крупнее */
+[data-tour=data] .fld>span{font-size:14px!important;margin-bottom:3px!important}
+#b-name,#b-phone{font-size:16px!important;min-height:46px!important;padding:9px 12px!important;border-radius:11px!important}
+#b-name::placeholder,#b-phone::placeholder{font-size:15px!important}
+[data-tour=data] .small,[data-tour=data] .agree span,[data-tour=data] .small b{font-size:14px!important;line-height:1.35}
+[data-tour=data] .agree input{width:20px!important;height:20px!important}
+[data-tour=data]+.note{font-size:13px!important;line-height:1.4}
+[data-tour=data] .btn{min-height:44px!important;font-size:15px!important}
