@@ -634,3 +634,6 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;text
 .center{text-align:center}
 .finger{animation:tap 1.5s ease-in-out infinite;will-change:transform}
 @media (prefers-reduced-motion:reduce){.qmap,.finger{animation:none!important}}
+
+.qttl{margin:0 0 6px;font-size:13px;font-weight:700;letter-spacing:.02em;color:#fff;text-align:center;text-shadow:0 0 14px rgba(255,140,110,.5)}
+.hwrow{grid-template-columns:1fr!important}

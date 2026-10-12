@@ -70,10 +70,11 @@ function quickBar() {
   if (!i.address && !ph) return '';
   let h = '<div class="quick">';
   if (i.address) {
+    h += '<p class="qttl">' + t('Наш адрес и локация') + '</p>';
     const inner = '<span class="qa"><span aria-hidden="true">📍</span> ' + esc(i.address) + '</span>' + (lm ? '<span class="ql">🧭 ' + t('Ориентир') + ': ' + esc(lm) + '</span>' : '') + (mh ? '<span class="qh">' + t('Нажмите — откроется карта') + ' <i aria-hidden="true">↗</i></span>' : '');
     h += mh ? '<a class="qmap" href="' + esc(mh) + '" target="_blank" rel="noopener">' + inner + '<span class="finger" aria-hidden="true">👆</span></a>' : '<div class="qmap static">' + inner + '</div>';
   }
-  if (ph) h += '<div class="howto"><p class="howt">' + t('Как записаться на приём') + '</p><div class="hwrow"><div class="hw"><span class="hwi" aria-hidden="true">📞</span><b>' + t('По телефону') + '</b><span class="qrow">' + telLinks('qk') + '</span></div><div class="hw"><span class="hwi" aria-hidden="true">📱</span><b>' + t('Самостоятельно') + '</b><span class="small">' + t('Выберите день, время и оплатите здесь, в приложении') + '</span></div></div></div>';
+  if (ph) h += '<div class="howto"><p class="howt">' + t('Записаться через звонок') + '</p><div class="hwrow"><div class="hw"><span class="hwi" aria-hidden="true">📞</span><b>' + t('По телефону') + '</b><span class="qrow">' + telLinks('qk') + '</span></div></div></div>';
   return h + '</div>';
 }
 // «О клинике»: описание одним блоком, преимущества компактными плитками, врачи. Блоки плавно появляются при прокрутке (один раз).
