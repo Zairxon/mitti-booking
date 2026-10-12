@@ -710,3 +710,12 @@ h2.stp i{width:24px!important;height:24px!important;font-size:13px!important}
 [data-tour=data] .agree input{width:20px!important;height:20px!important}
 [data-tour=data]+.note{font-size:13px!important;line-height:1.4}
 [data-tour=data] .btn{min-height:44px!important;font-size:15px!important}
+/* итог: блок «Ваши данные» возвращён почти к исходным размерам */
+[data-tour=data] .fld>span{font-size:12.5px!important;font-weight:500!important;margin-bottom:2px!important}
+#b-name,#b-phone{font-size:16px!important;min-height:42px!important;padding:8px 11px!important;border-radius:9px!important}
+#b-name::placeholder,#b-phone::placeholder{font-size:14.5px!important}
+[data-tour=data] .small,[data-tour=data] .small b{font-size:12.5px!important;line-height:1.35!important}
+[data-tour=data] .agree span{font-size:13px!important;line-height:1.35!important}
+[data-tour=data] .agree input{width:18px!important;height:18px!important;min-height:0!important}
+[data-tour=data]+.note{font-size:12px!important;line-height:1.4!important}
+[data-tour=data] .btn{min-height:42px!important;font-size:14.5px!important;padding:8px 14px!important}
