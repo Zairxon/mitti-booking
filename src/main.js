@@ -13,6 +13,7 @@ import bgUrl from './assets/bg.jpg';
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
 import { fmtPhoneInput, fmtPhone, cleanPhone, localDigits } from './phone.js';
 import { t, getLang, setLang, weekdays, weekdaysFull, monthsGen, months, pick, pickList, brand } from './i18n.js';
+import { initTour, startTour, tourDone } from './tour.js';
 import { mountFooter } from './footer.js';
 window.__appReady = true;
 
@@ -241,9 +242,9 @@ function view() {
     days.forEach((d) => { cells += open(d) ? '<button type="button" class="pill dayp" data-act="day" data-id="' + d + '" aria-pressed="' + (S.day === d) + '" aria-label="' + esc(dayFull(d)) + '">' + +d.slice(8, 10) + '</button>' : '<span class="dayp off" aria-hidden="true">·</span>'; });
     cal += '<div class="mblock"><p class="mname">' + esc(months()[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4)) + '</p><div class="cal7">' + cells + '</div></div>';
   }
-  let h = '<h2 class="bookh">' + t(S.resched ? 'Выберите новое время' : 'Записаться на приём') + '</h2>' + (S.resched ? '<p class="small center muted">' + t('Предоплата уже внесена, платить ещё раз не нужно.') + '</p>' : '') + '<section><h2>1. ' + t('Выберите день') + '</h2><div class="months">' + cal + '</div></section>';
-  h += '<section><h2>2. ' + t('Выберите врача') + '</h2><div class="pills">' + S.info.doctors.map((d) => '<button type="button" class="pill" data-act="doctor" data-id="' + esc(d.id) + '" aria-pressed="' + (S.doctor === d.id) + '"' + (docWorks(d, S.day) ? '' : ' disabled title="' + esc(t('В этот день не работает')) + '"') + '><i class="dot" style="--c:' + esc(d.color) + '"></i>' + esc(d.name) + '</button>').join('') + '</div></section>';
-  h += '<section><h2>3. ' + t('Выберите время') + '</h2>';
+  let h = '<h2 class="bookh">' + t(S.resched ? 'Выберите новое время' : 'Записаться на приём') + '</h2>' + (S.resched ? '<p class="small center muted">' + t('Предоплата уже внесена, платить ещё раз не нужно.') + '</p>' : '') + '<section><h2 class="stp"><i>1</i>' + t('Выберите день') + '</h2><div class="months">' + cal + '</div></section>';
+  h += '<section><h2 class="stp"><i>2</i>' + t('Выберите врача') + '</h2><div class="pills" data-tour="doctors">' + S.info.doctors.map((d) => '<button type="button" class="pill" data-act="doctor" data-id="' + esc(d.id) + '" aria-pressed="' + (S.doctor === d.id) + '"' + (docWorks(d, S.day) ? '' : ' disabled title="' + esc(t('В этот день не работает')) + '"') + '><i class="dot" style="--c:' + esc(d.color) + '"></i>' + esc(d.name) + '</button>').join('') + '</div></section>';
+  h += '<section><h2 class="stp"><i>3</i>' + t('Выберите время') + '</h2>';
   if (S.error && !S.time) h += '<p class="alert">' + esc(S.error) + '</p>';
   if (!S.day || !S.doctor) h += '<p class="empty">' + t('Сначала выберите день и врача.') + '</p>';
   else if (S.loading) h += '<p class="empty">' + t('Загрузка…') + '</p>';
@@ -259,10 +260,10 @@ function view() {
     h += '<section><div class="panel"><p class="small">' + esc(dayFull(S.day)) + ' · <b>' + S.time + '</b> · ' + esc(docName(S.doctor)) + '</p>' + (S.error ? '<p class="alert errbox" id="b-err" role="alert">⚠️ ' + esc(S.error) + '</p>' : '') + '<div class="row nsrow"><button class="btn" data-act="resched-go"' + (S.busy ? ' disabled' : '') + '>' + t(S.busy ? 'Отправляю…' : 'Перенести запись') + '</button><button class="btn ghost" data-act="resched-back">' + t('Назад') + '</button></div></div></section>';
   }
   if (!S.resched && S.time && pre) {
-    h += '<section><h2>4. ' + t('Выберите услугу') + '</h2>' + prepayNote() + '<div class="svcs">' + S.info.prepay.services.map((x) => '<button type="button" class="pill svc" data-act="svc" data-id="' + esc(x.id) + '" aria-pressed="' + (S.svc === x.id) + '"><b>' + esc(L(x.name)) + '</b><span class="num">' + t('Предоплата') + ': ' + money(x.deposit) + ' ' + t('сум') + '</span></button>').join('') + '</div></section>';
+    h += '<section><h2 class="stp"><i>4</i>' + t('Выберите услугу') + '</h2>' + prepayNote() + '<div class="svcs">' + S.info.prepay.services.map((x) => '<button type="button" class="pill svc" data-act="svc" data-id="' + esc(x.id) + '" aria-pressed="' + (S.svc === x.id) + '"><b>' + esc(L(x.name)) + '</b><span class="num">' + t('Предоплата') + ': ' + money(x.deposit) + ' ' + t('сум') + '</span></button>').join('') + '</div></section>';
   }
   if (!S.resched && S.time && (!pre || S.svc)) {
-    h += '<section><h2>' + (pre ? '5. ' : '4. ') + t('Ваши данные') + '</h2><div class="panel">' +
+    h += '<section><h2 class="stp"><i>' + (pre ? '5' : '4') + '</i>' + t('Ваши данные') + '</h2><div class="panel" data-tour="data">' +
       '<div class="fld"><span>' + t('Ваше имя') + '</span><input id="b-name" type="text" autocomplete="name" value="' + esc(S.name) + '"></div>' +
       '<div class="fld"><span>' + t('Телефон') + '</span><input id="b-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+998 90 123 45 67" maxlength="17" value="' + esc(S.phone) + '"></div>' +
       '<p class="small muted">' + esc(dayFull(S.day)) + ' · <b>' + S.time + '</b> · ' + esc(docName(S.doctor)) + '</p>' +
@@ -427,7 +428,10 @@ async function start() {
   try { S.info = await rpc('public_info'); S.error = ''; await loadDays(); if (S.info.doctors.length === 1) S.doctor = S.info.doctors[0].id; const w = workDays(); S.day = w.filter((d) => !S.days || S.days[d] !== 0)[0] || w[0] || ''; if (S.day && S.doctor) await loadSlots(); }
   catch (e) { S.error = t('Нет связи. Попробуйте ещё раз.'); }
   try { const sv = JSON.parse(localStorage.getItem(PAY_KEY) || 'null'); if (sv && sv.id && sv.token) { S.pay = sv; await pollPay(); if (S.pay) startPolling(); } } catch (e) { /* нет сохранённой брони */ }
+  initTour({ S, prepayOn });
   render();
+  try { const hasTrack = !!localStorage.getItem(TRACK_KEY); if (!tourDone() && !hasTrack && S.info && !S.pay && !S.done) setTimeout(startTour, 700); } catch (e) { /* без подсказок */ }
+  const hb = document.getElementById('helpbtn'); if (hb) hb.addEventListener('click', () => { try { localStorage.removeItem('mitti-tour'); } catch (e) { /* не страшно */ } if (!S.done && !S.pay && !S.noshow && !S.thanks && !S.resched) { window.scrollTo(0, 0); startTour(); } });
   checkVisit();
   setInterval(() => { if (document.visibilityState === 'visible') checkVisit(); }, 20000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkVisit(); });

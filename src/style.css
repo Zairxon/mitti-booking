@@ -652,3 +652,25 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;text
 .nsrow{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
 
 .tgnote{margin:14px 0 4px;padding:12px;border-radius:12px;border:1px dashed rgba(255,190,170,.45);text-align:center}.tgnote .btn{display:inline-flex;margin-top:6px;text-decoration:none}
+
+/* ===== крупные заголовки шагов: номер в кружке, заголовок в рамке ===== */
+h2.stp{display:flex;align-items:center;gap:12px;margin:0 0 14px;padding:10px 14px;font-size:21px;font-weight:700;line-height:1.2;color:#fff;border:2px solid rgba(255,190,170,.65);border-radius:16px;background:rgba(255,255,255,.08);box-shadow:0 0 18px rgba(255,140,110,.18);text-shadow:0 1px 6px rgba(0,0,0,.35)}
+h2.stp i{flex:none;display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#ff9c74,#ff6f8a);color:#fff;font-style:normal;font-size:18px;font-weight:800;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+@media (max-width:400px){h2.stp{font-size:19px;padding:9px 12px}h2.stp i{width:30px;height:30px;font-size:16px}}
+/* кнопка «?» слева сверху */
+.help-btn{position:absolute;top:8px;left:8px;z-index:4;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,.35);color:#fff;font-weight:800;font-size:17px;cursor:pointer;backdrop-filter:blur(4px)}
+/* подсказки первого входа */
+.tour{position:fixed;inset:0;z-index:300}
+.tour-block{position:fixed;background:transparent}
+.tour-hole{position:fixed;border-radius:16px;box-shadow:0 0 0 100vmax rgba(10,5,12,.72);border:2px solid #ffd2bd;pointer-events:none;transition:all .25s ease;animation:tourglow 1.6s ease-in-out infinite}
+@keyframes tourglow{0%,100%{border-color:#ffd2bd}50%{border-color:#ff8f70}}
+.tour-tip{position:fixed;width:min(340px,calc(100vw - 24px));padding:14px 16px;border-radius:16px;background:#fff;color:#2a1a14;box-shadow:0 12px 36px rgba(0,0,0,.45);z-index:2}
+.tour-tip b{display:block;font-size:17px;margin-bottom:4px}
+.tour-tip p{margin:0 0 8px;font-size:14.5px;line-height:1.4;color:#4a3329}
+.tour-need{color:#c2410c!important;font-weight:600}
+.tour-dots{display:block;font-size:12px;color:#8a6a5c;margin-bottom:2px}
+.tour-btns{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:6px}
+.tour-skip{background:none;border:0;color:#8a6a5c;font:inherit;font-size:14px;cursor:pointer;padding:8px 4px}
+.tour-next{border:0;border-radius:12px;padding:10px 20px;background:linear-gradient(135deg,#ff9c74,#ff6f8a);color:#fff;font:inherit;font-weight:700;font-size:15px;cursor:pointer}
+.tour-next[disabled]{opacity:.45;cursor:not-allowed}
+@media (prefers-reduced-motion:reduce){.tour-hole{animation:none;transition:none}}
