@@ -14,6 +14,7 @@ import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
 import { fmtPhoneInput, fmtPhone, cleanPhone, localDigits } from './phone.js';
 import { t, getLang, setLang, weekdays, weekdaysFull, monthsGen, months, pick, pickList, brand } from './i18n.js';
 import { mountFooter } from './footer.js';
+window.__appReady = true;
 
 const $ = (id) => document.getElementById(id);
 const TZ = 5 * 3600e3;
