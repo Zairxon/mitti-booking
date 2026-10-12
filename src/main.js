@@ -116,7 +116,7 @@ async function checkVisit() {
 function thanksScreen() {
   const nm = S.thanks.name ? '<p class="thn">' + esc(S.thanks.name) + '</p>' : '';
   return '<section><div class="panel thanks"><div class="thheart" aria-hidden="true">💗</div><h2>' + t('Спасибо, что выбрали «Митти юракча»!') + '</h2>' + nm +
-    '<p class="thtx">' + t('Благодарим вас за доверие и за то, что воспользовались нашими услугами. Желаем вам и вашим близким крепкого здоровья.') + '</p>' +
+    '<p class="thtx">' + t('Благодарим вас за доверие и за то, что воспользовались нашими услугами. Мы желаем вам и вашему малышу крепкого здоровья.') + '</p>' +
     '<p class="thsm">' + t('Будем рады видеть вас снова.') + '</p>' +
     '<div class="row"><button class="btn" data-act="thanks-close">' + t('Записаться снова') + '</button></div></div></section>';
 }
