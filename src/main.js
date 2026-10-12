@@ -101,6 +101,25 @@ const hhmm = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return Stri
 const tgHref = (c) => { const x = String(c || '').trim(); return /^@\w+$/.test(x) ? 'https://t.me/' + x.slice(1) : /^https?:\/\//.test(x) ? x : ''; };
 const PAY_KEY = 'mitti-pay';
 const savePay = () => { try { if (S.pay) localStorage.setItem(PAY_KEY, JSON.stringify(S.pay)); else localStorage.removeItem(PAY_KEY); } catch (e) { /* без запоминания */ } };
+const TRACK_KEY = 'mitti-visit';
+const saveTrack = (o) => { try { if (o) localStorage.setItem(TRACK_KEY, JSON.stringify(o)); else localStorage.removeItem(TRACK_KEY); } catch (e) { /* без запоминания */ } };
+// после приёма сотрудник нажимает «Прошёл»: тогда показываем клиенту благодарность
+async function checkVisit() {
+  let tr = null; try { tr = JSON.parse(localStorage.getItem(TRACK_KEY) || 'null'); } catch (e) { /* нет записи */ }
+  if (!tr || !tr.id || !tr.token) return;
+  try {
+    const j = await rpc('public_booking_status', { p_id: tr.id, p_token: tr.token });
+    if (j.finished) { saveTrack(null); S.thanks = { name: tr.name || '' }; render(); }
+    else if (j.status === 'cancelled' || j.status === 'no_show') saveTrack(null);
+  } catch (e) { if (e && e.code === 'not_found') saveTrack(null); }
+}
+function thanksScreen() {
+  const nm = S.thanks.name ? '<p class="thn">' + esc(S.thanks.name) + '</p>' : '';
+  return '<section><div class="panel thanks"><div class="thheart" aria-hidden="true">💗</div><h2>' + t('Спасибо, что выбрали «Митти юракча»!') + '</h2>' + nm +
+    '<p class="thtx">' + t('Благодарим вас за доверие и за то, что воспользовались нашими услугами. Желаем вам и вашим близким крепкого здоровья.') + '</p>' +
+    '<p class="thsm">' + t('Будем рады видеть вас снова.') + '</p>' +
+    '<div class="row"><button class="btn" data-act="thanks-close">' + t('Записаться снова') + '</button></div></div></section>';
+}
 const prepayNote = () => '<div class="prepay"><span class="pi" aria-hidden="true">💳</span><p>' + t('Бронь с предоплатой. Оплата вносится вперёд на карту клиники, сумма зависит от услуги. На оплату даётся {min} минут, затем время освободится.', { min: S.info.prepay.hold_minutes }) + '</p></div>';
 
 // экран оплаты: карта, сумма, таймер удержания, кнопка «Сфотографировать чек»
@@ -131,6 +150,7 @@ function payScreen() {
 function view() {
   if (S.error && !S.info) return '<section><div class="panel"><p class="alert">' + esc(S.error) + '</p><div class="row"><button class="btn" data-act="retry">' + t('Повторить') + '</button></div></div></section>';
   if (!S.info) return '<p class="empty">' + t('Загрузка…') + '</p>';
+  if (S.thanks) return thanksScreen();
   if (S.pay && S.pay.pay_status !== 'paid') return payScreen();
   if (S.done) {
     return '<section><div class="panel done"><div class="tick">✓</div><h2>' + t(S.done.paid ? 'Оплата подтверждена, вы записаны' : 'Вы записаны') + '</h2>' +
@@ -194,7 +214,7 @@ function render() {
   $('app').innerHTML = view();
   if (!S.introDone) { S.introDone = true; $('app').classList.add('intro'); setTimeout(() => $('app').classList.remove('intro'), 1400); }
   // при смене экрана (форма → оплата → «записаны») возвращаемся наверх, иначе на телефоне остаётся пустой низ страницы
-  const vk = S.pay && S.pay.pay_status !== 'paid' ? 'pay' : S.done ? 'done' : 'main';
+  const vk = S.thanks ? 'thanks' : S.pay && S.pay.pay_status !== 'paid' ? 'pay' : S.done ? 'done' : 'main';
   if (vk !== S.vk) { S.vk = vk; window.scrollTo(0, 0); }
   observeReveal();
 }
@@ -227,6 +247,7 @@ document.addEventListener('click', async (ev) => {
   else if (act === 'copy') { try { await navigator.clipboard.writeText(String(S.pay.card_number).replace(/\s/g, '')); b.textContent = t('Скопировано'); } catch (e) { /* без буфера */ } }
   else if (act === 'again-pay') { S.pay = null; savePay(); S.time = ''; S.svc = ''; S.agree = false; S.error = ''; await loadDays(); await loadSlots(); render(); }
   else if (act === 'time') { S.time = id; S.svc = ''; S.error = ''; render(); const n = $('b-name'); if (n) n.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+  else if (act === 'thanks-close') { S.thanks = null; S.done = null; S.time = ''; S.error = ''; await loadSlots(); render(); }
   else if (act === 'again') { S.done = null; S.time = ''; S.error = ''; await loadSlots(); render(); }
   else if (act === 'retry') { start(); }
   else if (act === 'book') {
@@ -239,6 +260,7 @@ document.addEventListener('click', async (ev) => {
     S.busy = true; S.error = ''; render();
     try {
       const res = await rpc('public_book', { p_doctor: S.doctor, p_start: S.day + 'T' + S.time + ':00+05:00', p_name: S.name.trim(), p_phone: cleanPhone(S.phone), p_source: SRC, p_service: prepayOn() ? S.svc : null });
+      if (res && res.id && res.token) saveTrack({ id: res.id, token: res.token, name: S.name.trim() });
       if (res && res.deposit) { S.pay = { ...res, pay_status: 'pending', snap: { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() } }; savePay(); startPolling(); }
       else S.done = { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() };
     } catch (e) {
@@ -315,6 +337,9 @@ async function start() {
   catch (e) { S.error = t('Нет связи. Попробуйте ещё раз.'); }
   try { const sv = JSON.parse(localStorage.getItem(PAY_KEY) || 'null'); if (sv && sv.id && sv.token) { S.pay = sv; await pollPay(); if (S.pay) startPolling(); } } catch (e) { /* нет сохранённой брони */ }
   render();
+  checkVisit();
+  setInterval(() => { if (document.visibilityState === 'visible') checkVisit(); }, 60000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkVisit(); });
 }
 document.documentElement.style.setProperty('--bg-img', 'url(' + bgUrl + ')');
 start();
