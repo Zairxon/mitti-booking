@@ -690,3 +690,15 @@ h2.stp i{width:30px!important;height:30px!important;font-size:16px!important}
 [data-tour=data] .small b{font-size:17px}
 [data-tour=data] .agree input{width:24px;height:24px}
 [data-tour=data]+.note{font-size:15.5px;line-height:1.5}
+/* корректировка размеров: заголовки шагов заметно меньше, блок «Ваши данные» лишь немного крупнее обычного */
+h2.stp{font-size:15px!important;padding:6px 10px!important;gap:8px!important;margin-bottom:10px!important;border-radius:12px!important}
+h2.stp i{width:24px!important;height:24px!important;font-size:13px!important}
+@media (max-width:400px){h2.stp{font-size:14.5px!important;padding:6px 9px!important}h2.stp i{width:23px!important;height:23px!important;font-size:12.5px!important}}
+[data-tour=data] .fld>span{font-size:15px!important;font-weight:600;margin-bottom:4px}
+#b-name,#b-phone{font-size:17px!important;min-height:50px!important;padding:11px 14px!important;border-radius:12px!important}
+#b-name::placeholder,#b-phone::placeholder{font-size:16px!important}
+[data-tour=data] .small,[data-tour=data] .agree span{font-size:15px!important;line-height:1.4}
+[data-tour=data] .small b{font-size:15px!important}
+[data-tour=data] .agree input{width:22px!important;height:22px!important}
+[data-tour=data]+.note{font-size:14px!important;line-height:1.45}
+[data-tour=data] .btn{min-height:48px!important;font-size:16px!important}
