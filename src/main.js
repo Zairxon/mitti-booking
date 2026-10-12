@@ -430,7 +430,7 @@ async function start() {
   try { const sv = JSON.parse(localStorage.getItem(PAY_KEY) || 'null'); if (sv && sv.id && sv.token) { S.pay = sv; await pollPay(); if (S.pay) startPolling(); } } catch (e) { /* нет сохранённой брони */ }
   initTour({ S, prepayOn });
   render();
-  try { const hasTrack = !!localStorage.getItem(TRACK_KEY); if (!tourDone() && !hasTrack && S.info && !S.pay && !S.done) setTimeout(startTour, 700); } catch (e) { /* без подсказок */ }
+  try { const hasTrack = !!localStorage.getItem(TRACK_KEY); if (!tourDone() && !hasTrack && S.info && !S.pay && !S.done) setTimeout(startTour, 1700); } catch (e) { /* без подсказок */ }
   const hb = document.getElementById('helpbtn'); if (hb) hb.addEventListener('click', () => { try { localStorage.removeItem('mitti-tour'); } catch (e) { /* не страшно */ } if (!S.done && !S.pay && !S.noshow && !S.thanks && !S.resched) { window.scrollTo(0, 0); startTour(); } });
   checkVisit();
   setInterval(() => { if (document.visibilityState === 'visible') checkVisit(); }, 20000);

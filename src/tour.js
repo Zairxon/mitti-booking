@@ -2,7 +2,7 @@
 import { t } from './i18n.js';
 
 const KEY = 'mitti-tour';
-let C = null, step = -1, root = null, hole = null, tip = null, blockers = [], shown = false, obs = null, tmo = 0;
+let poll = 0, C = null, step = -1, root = null, hole = null, tip = null, blockers = [], shown = false, obs = null, tmo = 0;
 
 export const tourDone = () => { try { return !!localStorage.getItem(KEY); } catch (e) { return true; } };
 export const tourActive = () => step >= 0;
@@ -15,7 +15,7 @@ const steps = () => {
     { sel: '.times', adv: '[data-act=time]', title: t('Шаг 3. Выберите время'), text: t('Нажмите на свободное время.'), done: () => !!S.time, need: t('Сначала выберите время') },
   ];
   if (C.prepayOn()) list.push({ sel: '.svcs', adv: '[data-act=svc]', title: t('Шаг 4. Выберите услугу'), text: t('От услуги зависит сумма предоплаты. Нажмите на нужную.'), done: () => !!S.svc, need: t('Сначала выберите услугу') });
-  list.push({ sel: '[data-tour=data]', last: true, title: t('Последний шаг'), text: t('Введите имя и телефон и нажмите кнопку записи. Запись сохранится на этом телефоне.'), done: () => true, ok: t('Понятно') });
+  list.push({ sel: '[data-tour=data]', adv: '[data-act=book]', last: true, title: t('Последний шаг'), text: t('Введите имя и телефон и нажмите кнопку записи. Запись сохранится на этом телефоне.'), done: () => true, ok: t('Понятно') });
   return list;
 };
 
@@ -67,7 +67,7 @@ function place(el) {
 function onClick(e) {
   if (step < 0) return;
   const s = steps()[step]; if (!s || !s.adv) return;
-  if (e.target.closest && e.target.closest(s.adv)) setTimeout(() => { if (step >= 0 && steps()[step] === s || step >= 0) next(true); }, 80);
+  if (e.target.closest && e.target.closest(s.adv)) setTimeout(() => { if (step >= 0) next(true); }, 80);
 }
 
 function next(fromClick) {
@@ -84,6 +84,7 @@ function finish() {
   try { localStorage.setItem(KEY, '1'); } catch (e) { /* не страшно */ }
   step = -1; shown = false;
   if (obs) { obs.disconnect(); obs = null; }
+  clearInterval(poll);
   document.removeEventListener('click', onClick, true); removeEventListener('resize', onMove); removeEventListener('scroll', onMove, true);
   if (root) { root.remove(); root = null; }
 }
@@ -94,5 +95,6 @@ export function startTour() {
   step = 0; shown = false; build(); render();
   document.addEventListener('click', onClick, true); addEventListener('resize', onMove); addEventListener('scroll', onMove, true);
   obs = new MutationObserver(sync); obs.observe(document.getElementById('app'), { childList: true, subtree: true });
+  poll = setInterval(onMove, 250);
 }
 export const tourSync = sync;

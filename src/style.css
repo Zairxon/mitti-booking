@@ -660,11 +660,11 @@ h2.stp i{flex:none;display:inline-grid;place-items:center;width:34px;height:34px
 /* кнопка «?» слева сверху */
 .help-btn{position:absolute;top:8px;left:8px;z-index:4;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,.35);color:#fff;font-weight:800;font-size:17px;cursor:pointer;backdrop-filter:blur(4px)}
 /* подсказки первого входа */
-.tour{position:fixed;inset:0;z-index:300}
-.tour-block{position:fixed;background:transparent}
-.tour-hole{position:fixed;border-radius:16px;box-shadow:0 0 0 100vmax rgba(10,5,12,.72);border:2px solid #ffd2bd;pointer-events:none;transition:all .25s ease;animation:tourglow 1.6s ease-in-out infinite}
+.tour{position:fixed;inset:0;z-index:300;pointer-events:none}
+.tour-block{position:fixed;background:transparent;pointer-events:auto}
+.tour-hole{position:fixed;border-radius:16px;box-shadow:0 0 0 100vmax rgba(10,5,12,.72);border:2px solid #ffd2bd;pointer-events:none;animation:tourglow 1.6s ease-in-out infinite}
 @keyframes tourglow{0%,100%{border-color:#ffd2bd}50%{border-color:#ff8f70}}
-.tour-tip{position:fixed;width:min(340px,calc(100vw - 24px));padding:14px 16px;border-radius:16px;background:#fff;color:#2a1a14;box-shadow:0 12px 36px rgba(0,0,0,.45);z-index:2}
+.tour-tip{position:fixed;width:min(340px,calc(100vw - 24px));padding:14px 16px;border-radius:16px;background:#fff;color:#2a1a14;box-shadow:0 12px 36px rgba(0,0,0,.45);z-index:2;pointer-events:auto}
 .tour-tip b{display:block;font-size:17px;margin-bottom:4px}
 .tour-tip p{margin:0 0 8px;font-size:14.5px;line-height:1.4;color:#4a3329}
 .tour-need{color:#c2410c!important;font-weight:600}
