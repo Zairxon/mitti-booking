@@ -136,10 +136,42 @@ async function checkVisit() {
   } catch (e) { if (e && e.code === 'not_found') saveTrack(null); }
 }
 // Сайт не может написать клиенту сам: даём кнопку подключить уведомления в Telegram (бот привязывает запись по секретному коду)
+// Push-уведомления на этот телефон: клиент разрешает один раз, сообщения приходят и при закрытом сайте
+const pushOK = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+const standalone = () => !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));
+const keyBytes = (s) => { const p = '='.repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, (c) => c.charCodeAt(0)); };
+async function subscribePush(id, token) {
+  const key = await rpc('public_push_key', {});
+  const reg = await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(key) });
+  await rpc('public_push_subscribe', { p_id: id, p_token: token, p_sub: sub.toJSON(), p_lang: getLang() });
+}
+async function enablePush() {
+  let tr = null; try { tr = JSON.parse(localStorage.getItem(TRACK_KEY) || 'null'); } catch (e) { /* нет записи */ }
+  if (!tr || !tr.token) return;
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { toast(t('Уведомления запрещены в настройках браузера. Разрешите их для этого сайта и нажмите кнопку ещё раз.')); S.pushDenied = true; render(); return; }
+    await subscribePush(tr.id, tr.token);
+    saveTrack({ ...tr, push: true }); toast(t('Уведомления включены')); render();
+  } catch (e) { toast(t('Не удалось включить уведомления. Попробуйте ещё раз.')); }
+}
+// у клиента уже есть разрешение: новую запись подписываем на уведомления сразу, без лишних нажатий
+async function autoPush(id, token) {
+  try { if (pushOK() && Notification.permission === 'granted') { await subscribePush(id, token); const tr = JSON.parse(localStorage.getItem(TRACK_KEY) || 'null'); if (tr && tr.id === id) saveTrack({ ...tr, push: true }); } } catch (e) { /* без push */ }
+}
+function pushBlock(tr) {
+  if (!pushOK()) return '';
+  if (isIos() && !standalone()) return '<div class="tgnote"><p class="small">' + t('Чтобы получать уведомления на iPhone, добавьте сайт на экран «Домой» (кнопка «Поделиться» → «На экран Домой») и откройте его оттуда.') + '</p></div>';
+  if (tr.push && Notification.permission === 'granted') return '<div class="tgnote"><p class="small">✅ ' + t('Уведомления на этом телефоне включены.') + '</p></div>';
+  return '<div class="tgnote"><p class="small">' + t('Включите уведомления: сообщим, когда оплата подтверждена, и если вы не сможете прийти, предложим другое время.') + '</p><button type="button" class="btn" data-act="push-on">🔔 ' + t('Получать уведомления на этом телефоне') + '</button>' + (S.pushDenied ? '<p class="small muted">' + t('Разрешите уведомления для этого сайта в настройках браузера.') + '</p>' : '') + '</div>';
+}
 function tgNotifyBlock() {
   let tr = null; try { tr = JSON.parse(localStorage.getItem(TRACK_KEY) || 'null'); } catch (e) { /* нет записи */ }
   if (!tr || !tr.token) return '';
-  return '<div class="tgnote"><p class="small">' + t('Хотите получать сообщения о записи в Telegram? Если не сможете прийти, мы предложим другое время.') + '</p><a class="btn" href="https://t.me/mittiyurakcha_bot?start=a_' + String(tr.token).replace(/-/g, '') + '" target="_blank" rel="noopener">✈️ ' + t('Получать уведомления в Telegram') + '</a></div>';
+  return pushBlock(tr) + '<div class="tgnote"><p class="small">' + t('Хотите получать сообщения о записи в Telegram? Если не сможете прийти, мы предложим другое время.') + '</p><a class="btn" href="https://t.me/mittiyurakcha_bot?start=a_' + String(tr.token).replace(/-/g, '') + '" target="_blank" rel="noopener">✈️ ' + t('Получать уведомления в Telegram') + '</a></div>';
 }
 function noshowScreen() {
   const n = S.noshow;
@@ -286,6 +318,7 @@ document.addEventListener('click', async (ev) => {
   else if (act === 'copy') { try { await navigator.clipboard.writeText(String(S.pay.card_number).replace(/\s/g, '')); b.textContent = t('Скопировано'); } catch (e) { /* без буфера */ } }
   else if (act === 'again-pay') { S.pay = null; savePay(); S.time = ''; S.svc = ''; S.agree = false; S.error = ''; await loadDays(); await loadSlots(); render(); }
   else if (act === 'time') { S.time = id; S.svc = ''; S.error = ''; render(); const n = $('b-name'); if (n) n.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+  else if (act === 'push-on') { await enablePush(); }
   else if (act === 'ns-resched') { S.resched = { id: S.noshow.id, token: S.noshow.token, ns: S.noshow }; S.noshow = null; S.time = ''; S.error = ''; await loadDays(); await loadSlots(); render(); window.scrollTo(0, 0); }
   else if (act === 'resched-back') { S.noshow = S.resched.ns; S.resched = null; S.time = ''; render(); window.scrollTo(0, 0); }
   else if (act === 'resched-go') {
@@ -317,6 +350,7 @@ document.addEventListener('click', async (ev) => {
     S.busy = true; S.error = ''; render();
     try {
       const res = await rpc('public_book', { p_doctor: S.doctor, p_start: S.day + 'T' + S.time + ':00+05:00', p_name: S.name.trim(), p_phone: cleanPhone(S.phone), p_source: SRC, p_utm: loadUtm(), p_service: prepayOn() ? S.svc : null });
+      if (res && res.id && res.token) autoPush(res.id, res.token);
       if (res && res.id && res.token) saveTrack({ id: res.id, token: res.token, name: S.name.trim(), snap: { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() } });
       if (res && res.deposit) { S.pay = { ...res, pay_status: 'pending', snap: { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() } }; savePay(); startPolling(); }
       else S.done = { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() };
