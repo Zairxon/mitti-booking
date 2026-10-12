@@ -650,3 +650,5 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;text
 .thanks .row{justify-content:center}
 
 .nsrow{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+
+.tgnote{margin:14px 0 4px;padding:12px;border-radius:12px;border:1px dashed rgba(255,190,170,.45);text-align:center}.tgnote .btn{display:inline-flex;margin-top:6px;text-decoration:none}

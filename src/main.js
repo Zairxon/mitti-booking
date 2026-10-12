@@ -126,11 +126,20 @@ async function checkVisit() {
   try {
     const j = await rpc('public_booking_status', { p_id: tr.id, p_token: tr.token });
     if (j.finished) { saveTrack(null); S.noshow = null; S.thanks = { name: tr.name || '' }; render(); }
+    else if (j.status === 'booked' && tr.snap && !tr.dismissed && !S.done && !S.pay && !S.noshow && !S.thanks && !S.resched && (j.pay_status === 'none' || j.pay_status === 'paid')) {
+      S.done = { ...tr.snap, paid: j.pay_status === 'paid' }; render();
+    }
     else if (j.status === 'no_show' && j.pay_status === 'paid' && !j.refunded) {
       const ns = { id: tr.id, token: tr.token, name: tr.name || '', at: j.starts_at, requested: !!j.refund_requested };
       if (!S.resched && (!S.noshow || S.noshow.requested !== ns.requested)) { S.noshow = ns; render(); }
     } else if (j.status === 'cancelled' || j.status === 'no_show') { saveTrack(null); if (S.noshow) { S.noshow = null; render(); } }
   } catch (e) { if (e && e.code === 'not_found') saveTrack(null); }
+}
+// Сайт не может написать клиенту сам: даём кнопку подключить уведомления в Telegram (бот привязывает запись по секретному коду)
+function tgNotifyBlock() {
+  let tr = null; try { tr = JSON.parse(localStorage.getItem(TRACK_KEY) || 'null'); } catch (e) { /* нет записи */ }
+  if (!tr || !tr.token) return '';
+  return '<div class="tgnote"><p class="small">' + t('Хотите получать сообщения о записи в Telegram? Если не сможете прийти, мы предложим другое время.') + '</p><a class="btn" href="https://t.me/mittiyurakcha_bot?start=a_' + String(tr.token).replace(/-/g, '') + '" target="_blank" rel="noopener">✈️ ' + t('Получать уведомления в Telegram') + '</a></div>';
 }
 function noshowScreen() {
   const n = S.noshow;
@@ -186,7 +195,7 @@ function view() {
       '<li><div class="li-main"><b>' + t('Врач') + '</b></div><span>' + esc(docName(S.done.doctor)) + '</span></li>' +
       '<li><div class="li-main"><b>' + t('Имя') + '</b></div><span>' + esc(S.done.name) + '</span></li></ul>' +
       '<p class="note">' + t('Пожалуйста, приходите за 5 минут до приёма. Если планы изменились, позвоните в клинику, чтобы отменить запись.') + '</p>' +
-      '<div class="row"><button class="btn ghost" data-act="again">' + t('Записать ещё') + '</button></div></div></section>';
+      tgNotifyBlock() + '<div class="row"><button class="btn ghost" data-act="again">' + t('Записать ещё') + '</button></div></div></section>';
   }
   // дни неделями: заголовок Пн–Вс, ряды по семь, каждый месяц отдельным блоком; нажимаются только дни со свободным временем
   const today = todayTz(), last = addDays(today, S.info.days_ahead), wd = weekdays();
@@ -296,7 +305,7 @@ document.addEventListener('click', async (ev) => {
     S.busy = false; render();
   }
   else if (act === 'thanks-close') { S.thanks = null; S.done = null; S.time = ''; S.error = ''; await loadSlots(); render(); }
-  else if (act === 'again') { S.done = null; S.time = ''; S.error = ''; await loadSlots(); render(); }
+  else if (act === 'again') { try { const tr0 = JSON.parse(localStorage.getItem(TRACK_KEY) || 'null'); if (tr0) saveTrack({ ...tr0, dismissed: true }); } catch (e) { /* без запоминания */ } S.done = null; S.time = ''; S.error = ''; await loadSlots(); render(); }
   else if (act === 'retry') { start(); }
   else if (act === 'book') {
     if ($('b-name')) S.name = $('b-name').value; if ($('b-phone')) S.phone = $('b-phone').value;
@@ -308,7 +317,7 @@ document.addEventListener('click', async (ev) => {
     S.busy = true; S.error = ''; render();
     try {
       const res = await rpc('public_book', { p_doctor: S.doctor, p_start: S.day + 'T' + S.time + ':00+05:00', p_name: S.name.trim(), p_phone: cleanPhone(S.phone), p_source: SRC, p_utm: loadUtm(), p_service: prepayOn() ? S.svc : null });
-      if (res && res.id && res.token) saveTrack({ id: res.id, token: res.token, name: S.name.trim() });
+      if (res && res.id && res.token) saveTrack({ id: res.id, token: res.token, name: S.name.trim(), snap: { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() } });
       if (res && res.deposit) { S.pay = { ...res, pay_status: 'pending', snap: { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() } }; savePay(); startPolling(); }
       else S.done = { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() };
     } catch (e) {
@@ -386,7 +395,7 @@ async function start() {
   try { const sv = JSON.parse(localStorage.getItem(PAY_KEY) || 'null'); if (sv && sv.id && sv.token) { S.pay = sv; await pollPay(); if (S.pay) startPolling(); } } catch (e) { /* нет сохранённой брони */ }
   render();
   checkVisit();
-  setInterval(() => { if (document.visibilityState === 'visible') checkVisit(); }, 60000);
+  setInterval(() => { if (document.visibilityState === 'visible') checkVisit(); }, 20000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkVisit(); });
 }
 document.documentElement.style.setProperty('--bg-img', 'url(' + bgUrl + ')');
