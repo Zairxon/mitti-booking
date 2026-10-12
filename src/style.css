@@ -624,7 +624,6 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;text
 .btn.gal.off{opacity:.6;pointer-events:none}
 
 /* ===== без мелькания: нет полос прокрутки от анимаций, анимация появления только один раз ===== */
-html,body{overflow-x:hidden;overscroll-behavior-y:none}
 .wrap{overflow-x:clip}
 #app>section,#app>.months,#app>.quick{animation:none!important}
 #app.intro>section,#app.intro>.months,#app.intro>.quick{animation:rise .5s both!important}
