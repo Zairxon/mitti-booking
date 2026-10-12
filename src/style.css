@@ -648,3 +648,5 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;text
 @keyframes thbeat{0%,100%{transform:scale(1)}14%{transform:scale(1.18)}28%{transform:scale(1)}42%{transform:scale(1.12)}70%{transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){.thheart{animation:none}}
 .thanks .row{justify-content:center}
+
+.nsrow{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}

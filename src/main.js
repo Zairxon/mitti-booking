@@ -23,6 +23,21 @@ const addDays = (d, n) => { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x
 const isoDow = (d) => { const x = new Date(d + 'T00:00:00Z').getUTCDay(); return x === 0 ? 7 : x; };
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const SRC = new URLSearchParams(location.search).get('src') === 'bot' ? 'bot' : 'site';
+// Откуда пришёл клиент: метки ?utm_source=…&utm_medium=…&utm_campaign=… из рекламной ссылки; без меток берём сайт, с которого перешли
+const UTM_KEY = 'mitti-utm';
+function captureUtm() {
+  try {
+    const q = new URLSearchParams(location.search), clean = (v, n) => String(v || '').trim().slice(0, n);
+    let u = { source: clean(q.get('utm_source') || q.get('ref'), 40), medium: clean(q.get('utm_medium'), 40), campaign: clean(q.get('utm_campaign'), 60) };
+    if (!u.source && document.referrer) { try { const h = new URL(document.referrer).hostname.replace(/^www\./, ''); if (h && h !== location.hostname) u = { source: h, medium: 'referral', campaign: '' }; } catch (e) { /* без referrer */ } }
+    if (u.source) localStorage.setItem(UTM_KEY, JSON.stringify({ ...u, t: Date.now() }));
+  } catch (e) { /* без запоминания */ }
+}
+function loadUtm() {
+  try { const u = JSON.parse(localStorage.getItem(UTM_KEY) || 'null'); if (u && u.source && Date.now() - (u.t || 0) < 30 * 86400e3) return { source: u.source, medium: u.medium || '', campaign: u.campaign || '' }; } catch (e) { /* нет метки */ }
+  return null;
+}
+captureUtm();
 
 const S = { svc: '', agree: false, pay: null, fresh: '', seen: {}, days: null, info: null, day: '', doctor: '', time: '', slots: null, loading: false, name: '', phone: '', busy: false, done: null, error: '' };
 
@@ -36,6 +51,7 @@ async function rpc(fn, args) {
 const ERR = {
   slot_taken: 'Это время только что заняли. Выберите другое.',
   slot_unavailable: 'Это время недоступно. Выберите другое.',
+  not_allowed: 'Это действие сейчас недоступно.',
   bad_name: 'Укажите имя (не короче 2 букв).',
   bad_phone: 'Проверьте номер телефона.',
   too_many: 'У вас уже есть 3 активные записи на этот номер. Отмените ненужную в боте или позвоните в клинику.',
@@ -109,9 +125,19 @@ async function checkVisit() {
   if (!tr || !tr.id || !tr.token) return;
   try {
     const j = await rpc('public_booking_status', { p_id: tr.id, p_token: tr.token });
-    if (j.finished) { saveTrack(null); S.thanks = { name: tr.name || '' }; render(); }
-    else if (j.status === 'cancelled' || j.status === 'no_show') saveTrack(null);
+    if (j.finished) { saveTrack(null); S.noshow = null; S.thanks = { name: tr.name || '' }; render(); }
+    else if (j.status === 'no_show' && j.pay_status === 'paid' && !j.refunded) {
+      const ns = { id: tr.id, token: tr.token, name: tr.name || '', at: j.starts_at, requested: !!j.refund_requested };
+      if (!S.resched && (!S.noshow || S.noshow.requested !== ns.requested)) { S.noshow = ns; render(); }
+    } else if (j.status === 'cancelled' || j.status === 'no_show') { saveTrack(null); if (S.noshow) { S.noshow = null; render(); } }
   } catch (e) { if (e && e.code === 'not_found') saveTrack(null); }
+}
+function noshowScreen() {
+  const n = S.noshow;
+  return '<section><div class="panel thanks"><div class="thheart" aria-hidden="true">🕘</div><h2>' + t('Вы не пришли на приём') + '</h2>' + (n.name ? '<p class="thn">' + esc(n.name) + '</p>' : '') +
+    '<p class="thtx">' + t('Мы ждали вас, но вы не появились в клинике. Ваша предоплата сохранена: можно выбрать другое время без повторной оплаты или вернуть деньги.') + '</p>' +
+    (n.requested ? '<p class="note">' + t('Заявка на возврат принята. Клиника свяжется с вами. Если передумали, выберите другое время.') + '</p>' : '') +
+    '<div class="row nsrow"><button class="btn" data-act="ns-resched">' + t('Выбрать другое время') + '</button>' + (n.requested ? '' : '<button class="btn ghost" data-act="ns-refund"' + (S.busy ? ' disabled' : '') + '>' + t('Вернуть деньги') + '</button>') + '</div></div></section>';
 }
 function thanksScreen() {
   const nm = S.thanks.name ? '<p class="thn">' + esc(S.thanks.name) + '</p>' : '';
@@ -151,6 +177,7 @@ function view() {
   if (S.error && !S.info) return '<section><div class="panel"><p class="alert">' + esc(S.error) + '</p><div class="row"><button class="btn" data-act="retry">' + t('Повторить') + '</button></div></div></section>';
   if (!S.info) return '<p class="empty">' + t('Загрузка…') + '</p>';
   if (S.thanks) return thanksScreen();
+  if (S.noshow && !S.resched) return noshowScreen();
   if (S.pay && S.pay.pay_status !== 'paid') return payScreen();
   if (S.done) {
     return '<section><div class="panel done"><div class="tick">✓</div><h2>' + t(S.done.paid ? 'Оплата подтверждена, вы записаны' : 'Вы записаны') + '</h2>' +
@@ -173,7 +200,7 @@ function view() {
     days.forEach((d) => { cells += open(d) ? '<button type="button" class="pill dayp" data-act="day" data-id="' + d + '" aria-pressed="' + (S.day === d) + '" aria-label="' + esc(dayFull(d)) + '">' + +d.slice(8, 10) + '</button>' : '<span class="dayp off" aria-hidden="true">·</span>'; });
     cal += '<div class="mblock"><p class="mname">' + esc(months()[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4)) + '</p><div class="cal7">' + cells + '</div></div>';
   }
-  let h = '<h2 class="bookh">' + t('Записаться на приём') + '</h2><section><h2>1. ' + t('Выберите день') + '</h2><div class="months">' + cal + '</div></section>';
+  let h = '<h2 class="bookh">' + t(S.resched ? 'Выберите новое время' : 'Записаться на приём') + '</h2>' + (S.resched ? '<p class="small center muted">' + t('Предоплата уже внесена, платить ещё раз не нужно.') + '</p>' : '') + '<section><h2>1. ' + t('Выберите день') + '</h2><div class="months">' + cal + '</div></section>';
   h += '<section><h2>2. ' + t('Выберите врача') + '</h2><div class="pills">' + S.info.doctors.map((d) => '<button type="button" class="pill" data-act="doctor" data-id="' + esc(d.id) + '" aria-pressed="' + (S.doctor === d.id) + '"' + (docWorks(d, S.day) ? '' : ' disabled title="' + esc(t('В этот день не работает')) + '"') + '><i class="dot" style="--c:' + esc(d.color) + '"></i>' + esc(d.name) + '</button>').join('') + '</div></section>';
   h += '<section><h2>3. ' + t('Выберите время') + '</h2>';
   if (S.error && !S.time) h += '<p class="alert">' + esc(S.error) + '</p>';
@@ -186,11 +213,14 @@ function view() {
     h += free.length ? '<div class="times">' + free.map((x, k) => '<button type="button" class="pill tslot" style="--k:' + k + '" data-act="time" data-id="' + x + '" aria-pressed="' + (S.time === x) + '">' + x + '</button>').join('') + '</div>' : '<p class="empty">' + t('На этот день свободного времени нет. Выберите другой день или врача.') + '</p>';
   }
   h += '</section>';
-  const pre = prepayOn();
-  if (S.time && pre) {
+  const pre = prepayOn() && !S.resched;
+  if (S.resched && S.time) {
+    h += '<section><div class="panel"><p class="small">' + esc(dayFull(S.day)) + ' · <b>' + S.time + '</b> · ' + esc(docName(S.doctor)) + '</p>' + (S.error ? '<p class="alert errbox" id="b-err" role="alert">⚠️ ' + esc(S.error) + '</p>' : '') + '<div class="row nsrow"><button class="btn" data-act="resched-go"' + (S.busy ? ' disabled' : '') + '>' + t(S.busy ? 'Отправляю…' : 'Перенести запись') + '</button><button class="btn ghost" data-act="resched-back">' + t('Назад') + '</button></div></div></section>';
+  }
+  if (!S.resched && S.time && pre) {
     h += '<section><h2>4. ' + t('Выберите услугу') + '</h2>' + prepayNote() + '<div class="svcs">' + S.info.prepay.services.map((x) => '<button type="button" class="pill svc" data-act="svc" data-id="' + esc(x.id) + '" aria-pressed="' + (S.svc === x.id) + '"><b>' + esc(L(x.name)) + '</b><span class="num">' + t('Предоплата') + ': ' + money(x.deposit) + ' ' + t('сум') + '</span></button>').join('') + '</div></section>';
   }
-  if (S.time && (!pre || S.svc)) {
+  if (!S.resched && S.time && (!pre || S.svc)) {
     h += '<section><h2>' + (pre ? '5. ' : '4. ') + t('Ваши данные') + '</h2><div class="panel">' +
       '<div class="fld"><span>' + t('Ваше имя') + '</span><input id="b-name" type="text" autocomplete="name" value="' + esc(S.name) + '"></div>' +
       '<div class="fld"><span>' + t('Телефон') + '</span><input id="b-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+998 90 123 45 67" maxlength="17" value="' + esc(S.phone) + '"></div>' +
@@ -214,7 +244,7 @@ function render() {
   $('app').innerHTML = view();
   if (!S.introDone) { S.introDone = true; $('app').classList.add('intro'); setTimeout(() => $('app').classList.remove('intro'), 1400); }
   // при смене экрана (форма → оплата → «записаны») возвращаемся наверх, иначе на телефоне остаётся пустой низ страницы
-  const vk = S.thanks ? 'thanks' : S.pay && S.pay.pay_status !== 'paid' ? 'pay' : S.done ? 'done' : 'main';
+  const vk = S.thanks ? 'thanks' : S.noshow && !S.resched ? 'noshow' : S.resched ? 'resched' : S.pay && S.pay.pay_status !== 'paid' ? 'pay' : S.done ? 'done' : 'main';
   if (vk !== S.vk) { S.vk = vk; window.scrollTo(0, 0); }
   observeReveal();
 }
@@ -247,6 +277,24 @@ document.addEventListener('click', async (ev) => {
   else if (act === 'copy') { try { await navigator.clipboard.writeText(String(S.pay.card_number).replace(/\s/g, '')); b.textContent = t('Скопировано'); } catch (e) { /* без буфера */ } }
   else if (act === 'again-pay') { S.pay = null; savePay(); S.time = ''; S.svc = ''; S.agree = false; S.error = ''; await loadDays(); await loadSlots(); render(); }
   else if (act === 'time') { S.time = id; S.svc = ''; S.error = ''; render(); const n = $('b-name'); if (n) n.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+  else if (act === 'ns-resched') { S.resched = { id: S.noshow.id, token: S.noshow.token, ns: S.noshow }; S.noshow = null; S.time = ''; S.error = ''; await loadDays(); await loadSlots(); render(); window.scrollTo(0, 0); }
+  else if (act === 'resched-back') { S.noshow = S.resched.ns; S.resched = null; S.time = ''; render(); window.scrollTo(0, 0); }
+  else if (act === 'resched-go') {
+    if (S.busy) return;
+    S.busy = true; S.error = ''; render();
+    try {
+      await rpc('public_reschedule', { p_id: S.resched.id, p_token: S.resched.token, p_doctor: S.doctor, p_start: S.day + 'T' + S.time + ':00+05:00' });
+      const nm = (S.resched.ns && S.resched.ns.name) || S.name || '';
+      S.done = { day: S.day, time: S.time, doctor: S.doctor, name: nm, paid: true }; S.resched = null; S.noshow = null; S.time = '';
+    } catch (e) { S.error = errText(e); toast(S.error); if (e.code === 'slot_taken' || e.code === 'slot_unavailable') { await loadSlots(); S.time = ''; } }
+    S.busy = false; render();
+  }
+  else if (act === 'ns-refund') {
+    if (S.busy) return;
+    S.busy = true; render();
+    try { await rpc('public_refund_request', { p_id: S.noshow.id, p_token: S.noshow.token }); S.noshow.requested = true; toast(t('Заявка на возврат принята')); } catch (e) { toast(errText(e)); }
+    S.busy = false; render();
+  }
   else if (act === 'thanks-close') { S.thanks = null; S.done = null; S.time = ''; S.error = ''; await loadSlots(); render(); }
   else if (act === 'again') { S.done = null; S.time = ''; S.error = ''; await loadSlots(); render(); }
   else if (act === 'retry') { start(); }
@@ -259,7 +307,7 @@ document.addEventListener('click', async (ev) => {
     if (prepayOn() && !S.agree) return fail(t('Подтвердите, что понимаете условия предоплаты.'));
     S.busy = true; S.error = ''; render();
     try {
-      const res = await rpc('public_book', { p_doctor: S.doctor, p_start: S.day + 'T' + S.time + ':00+05:00', p_name: S.name.trim(), p_phone: cleanPhone(S.phone), p_source: SRC, p_service: prepayOn() ? S.svc : null });
+      const res = await rpc('public_book', { p_doctor: S.doctor, p_start: S.day + 'T' + S.time + ':00+05:00', p_name: S.name.trim(), p_phone: cleanPhone(S.phone), p_source: SRC, p_utm: loadUtm(), p_service: prepayOn() ? S.svc : null });
       if (res && res.id && res.token) saveTrack({ id: res.id, token: res.token, name: S.name.trim() });
       if (res && res.deposit) { S.pay = { ...res, pay_status: 'pending', snap: { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() } }; savePay(); startPolling(); }
       else S.done = { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() };
