@@ -116,9 +116,7 @@ function payScreen() {
     h += '<p class="timer">⏳ ' + t('Осталось времени') + ': <b class="num" id="timer">' + hhmm(left) + '</b></p><p class="small muted">' + t('Если оплата не придёт вовремя, бронь снимется автоматически.') + '</p>';
     if (st === 'rejected') h += '<p class="alert">' + t('Чек не принят. Проверьте сумму и отправьте фото ещё раз.') + '</p>';
     if (p.err) h += '<p class="alert">' + esc(p.err) + '</p>';
-    const off = p.uploading ? ' disabled' : '';
-    h += '<div class="rcpick"><label class="btn camera' + (p.uploading ? ' off' : '') + '"><span aria-hidden="true">📷</span> ' + t(p.uploading ? 'Отправляю…' : 'Сфотографировать чек') + '<input id="rfile" type="file" accept="image/*" capture="environment" hidden' + off + '></label>' +
-      '<label class="btn ghost gal' + (p.uploading ? ' off' : '') + '"><span aria-hidden="true">🖼</span> ' + t('Выбрать скриншот или фото из галереи') + '<input id="rfile2" type="file" accept="image/*" hidden' + off + '></label></div>';
+    h += '<label class="btn camera' + (p.uploading ? ' off' : '') + '"><span aria-hidden="true">🧾</span> ' + t(p.uploading ? 'Отправляю…' : 'Отправить чек') + '<input id="rfile" type="file" accept="image/*" hidden' + (p.uploading ? ' disabled' : '') + '></label><p class="small muted center">' + t('Откроется выбор: камера или галерея (можно скриншот)') + '</p>';
     if (tg || p.receipt_contact) h += '<p class="small muted">' + t('Или отправьте чек в Telegram: {c}', { c: '' }) + (tg ? '<a href="' + esc(tg) + '" target="_blank" rel="noopener">' + esc(p.receipt_contact) + '</a>' : esc(p.receipt_contact)) + '</p>';
   } else if (st === 'review') {
     h += '<div class="reviewing"><span class="spin" aria-hidden="true"></span><p>' + t('Чек отправлен. Сотрудник проверяет оплату, это займёт несколько минут. Не закрывайте страницу.') + '</p><p class="small muted">' + t('Если закроете страницу, запись сохранится, а клиника свяжется с вами по номеру телефона.') + '</p></div>';
@@ -153,7 +151,7 @@ function view() {
     days.forEach((d) => { cells += open(d) ? '<button type="button" class="pill dayp" data-act="day" data-id="' + d + '" aria-pressed="' + (S.day === d) + '" aria-label="' + esc(dayFull(d)) + '">' + +d.slice(8, 10) + '</button>' : '<span class="dayp off" aria-hidden="true">·</span>'; });
     cal += '<div class="mblock"><p class="mname">' + esc(months()[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4)) + '</p><div class="cal7">' + cells + '</div></div>';
   }
-  let h = quickBar() + '<section><h2>1. ' + t('Выберите день') + '</h2><div class="months">' + cal + '</div></section>';
+  let h = '<h2 class="bookh">' + t('Записаться на приём') + '</h2><section><h2>1. ' + t('Выберите день') + '</h2><div class="months">' + cal + '</div></section>';
   h += '<section><h2>2. ' + t('Выберите врача') + '</h2><div class="pills">' + S.info.doctors.map((d) => '<button type="button" class="pill" data-act="doctor" data-id="' + esc(d.id) + '" aria-pressed="' + (S.doctor === d.id) + '"' + (docWorks(d, S.day) ? '' : ' disabled title="' + esc(t('В этот день не работает')) + '"') + '><i class="dot" style="--c:' + esc(d.color) + '"></i>' + esc(d.name) + '</button>').join('') + '</div></section>';
   h += '<section><h2>3. ' + t('Выберите время') + '</h2>';
   if (S.error && !S.time) h += '<p class="alert">' + esc(S.error) + '</p>';
@@ -180,7 +178,7 @@ function view() {
       '<div class="row"><button class="btn" data-act="book"' + (S.busy ? ' disabled' : '') + '>' + t(S.busy ? 'Отправляю…' : pre ? 'Записаться и оплатить' : 'Записаться') + '</button></div></div>' +
       '<p class="note">' + t('Нажимая «Записаться», вы соглашаетесь, что клиника свяжется с вами по этому номеру.') + '</p></section>';
   }
-  return h + aboutBlock();
+  return h + quickBar() + aboutBlock();
 }
 
 function render() {
@@ -192,6 +190,7 @@ function render() {
   $('slogan').textContent = sl; $('slogan').hidden = !sl;
   $('app').dataset.fresh = S.fresh; S.fresh = '';
   $('app').innerHTML = view();
+  if (!S.introDone) { S.introDone = true; $('app').classList.add('intro'); setTimeout(() => $('app').classList.remove('intro'), 1400); }
   // при смене экрана (форма → оплата → «записаны») возвращаемся наверх, иначе на телефоне остаётся пустой низ страницы
   const vk = S.pay && S.pay.pay_status !== 'paid' ? 'pay' : S.done ? 'done' : 'main';
   if (vk !== S.vk) { S.vk = vk; window.scrollTo(0, 0); }
@@ -289,10 +288,12 @@ async function pollPay() {
   const p = S.pay; if (!p) return;
   try {
     const j = await rpc('public_booking_status', { p_id: p.id, p_token: p.token });
-    if ((j.status === 'cancelled') !== !!p.cancelled) { p.cancelled = j.status === 'cancelled'; savePay(); }
-    if (j.pay_status !== p.pay_status || j.hold_until !== p.hold_until) { p.pay_status = j.pay_status; p.hold_until = j.hold_until || p.hold_until; savePay(); }
-    if (j.pay_status === 'paid') { S.done = { ...p.snap, paid: true }; S.pay = null; savePay(); stopPolling(); }
-    render();
+    let ch = false;
+    if ((j.status === 'cancelled') !== !!p.cancelled) { p.cancelled = j.status === 'cancelled'; savePay(); ch = true; }
+    if (j.pay_status !== p.pay_status) { p.pay_status = j.pay_status; p.hold_until = j.hold_until || p.hold_until; savePay(); ch = true; }
+    else if (j.hold_until && j.hold_until !== p.hold_until) { p.hold_until = j.hold_until; savePay(); }
+    if (j.pay_status === 'paid') { S.done = { ...p.snap, paid: true }; S.pay = null; savePay(); stopPolling(); ch = true; }
+    if (ch) render();
   } catch (e) { if (e.code === 'not_found') { S.pay = null; savePay(); stopPolling(); render(); } }
 }
 function startPolling() {

@@ -622,3 +622,16 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;text
 .rcpick{display:flex;flex-direction:column;gap:8px;width:100%}
 .btn.gal{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;cursor:pointer}
 .btn.gal.off{opacity:.6;pointer-events:none}
+
+/* ===== без мелькания: нет полос прокрутки от анимаций, анимация появления только один раз ===== */
+html,body{overflow-x:hidden;overscroll-behavior-y:none}
+.wrap{overflow-x:clip}
+#app>section,#app>.months,#app>.quick{animation:none!important}
+#app.intro>section,#app.intro>.months,#app.intro>.quick{animation:rise .5s both!important}
+.qmap,.btn.camera{animation:none!important;box-shadow:inset 0 0 0 1px rgba(255,190,170,.35)}
+.qmap{animation:qglow 3.2s ease-in-out infinite!important}
+@keyframes qglow{0%,100%{background-color:rgba(255,255,255,.10)}50%{background-color:rgba(255,160,135,.20)}}
+.bookh{margin:6px 0 -6px;text-align:center;font-size:20px;font-weight:700;color:#fff;text-shadow:0 0 18px rgba(255,140,110,.6)}
+.center{text-align:center}
+.finger{animation:tap 1.5s ease-in-out infinite;will-change:transform}
+@media (prefers-reduced-motion:reduce){.qmap,.finger{animation:none!important}}
