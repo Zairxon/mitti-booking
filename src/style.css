@@ -726,3 +726,4 @@ h2.stp i{width:24px!important;height:24px!important;font-size:13px!important}
 .hist{margin-bottom:14px}
 .hist .hh{font-size:15px;margin:0 0 6px}
 .hist .hv{padding-top:4px;padding-bottom:4px;min-height:0}
+.hist .panel+.panel{margin-top:8px}.hist .hn{margin:0 0 4px;font-weight:700}

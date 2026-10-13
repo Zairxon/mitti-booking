@@ -130,13 +130,15 @@ async function loadHist() {
   try { S.hist = await rpc('public_my_visits', { p_tokens: tk }); } catch (e) { /* журнал не обязателен */ }
 }
 const isoDay = (iso) => new Date(Date.parse(iso) + TZ).toISOString().slice(0, 10);
+// по каждому записанному человеку отдельно: если клиент записывал подругу, её визиты не смешиваются с его собственными
 function histBlock() {
-  const h = S.hist; if (!h || !(h.visits > 0)) return '';
-  return '<section class="hist"><h2 class="hh">' + t('Журнал визитов') + '</h2><div class="panel"><ul class="list">' +
-    '<li><div class="li-main"><b>' + t('Визитов в клинику') + '</b></div><span class="num">' + h.visits + '</span></li>' +
-    '<li><div class="li-main"><b>' + t('Последний визит') + '</b></div><span>' + esc(dayFull(isoDay(h.last))) + '</span></li>' +
-    (h.upcoming ? '<li><div class="li-main"><b>' + t('Ближайшая запись') + '</b></div><span>' + esc(dayFull(isoDay(h.upcoming.starts_at))) + ', ' + new Date(Date.parse(h.upcoming.starts_at) + TZ).toISOString().slice(11, 16) + '</span></li>' : '') +
-    (h.list || []).slice(0, 5).map((v) => '<li class="hv"><div class="li-main"><span class="small muted">' + esc(dayFull(isoDay(v.starts_at))) + (v.doctor ? ' · ' + esc(v.doctor) : '') + '</span></div></li>').join('') + '</ul></div></section>';
+  const ps = ((S.hist && S.hist.people) || []).filter((p) => p.visits > 0); if (!ps.length) return '';
+  const many = ps.length > 1;
+  return '<section class="hist"><h2 class="hh">' + t('Журнал визитов') + '</h2>' + ps.map((p) => '<div class="panel">' + (many ? '<p class="hn">' + esc(p.name || '') + (p.tail ? ' <span class="muted">••' + esc(p.tail) + '</span>' : '') + '</p>' : '') + '<ul class="list">' +
+    '<li><div class="li-main"><b>' + t('Визитов в клинику') + '</b></div><span class="num">' + p.visits + '</span></li>' +
+    '<li><div class="li-main"><b>' + t('Последний визит') + '</b></div><span>' + esc(dayFull(isoDay(p.last))) + '</span></li>' +
+    (p.upcoming ? '<li><div class="li-main"><b>' + t('Ближайшая запись') + '</b></div><span>' + esc(dayFull(isoDay(p.upcoming.starts_at))) + ', ' + new Date(Date.parse(p.upcoming.starts_at) + TZ).toISOString().slice(11, 16) + '</span></li>' : '') +
+    (p.list || []).map((v) => '<li class="hv"><div class="li-main"><span class="small muted">' + esc(dayFull(isoDay(v.starts_at))) + (v.doctor ? ' · ' + esc(v.doctor) : '') + '</span></div></li>').join('') + '</ul></div>').join('') + '</section>';
 }
 // после приёма сотрудник нажимает «Прошёл»: тогда показываем клиенту благодарность
 async function checkVisit() {
