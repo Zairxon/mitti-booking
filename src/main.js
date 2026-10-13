@@ -43,6 +43,13 @@ captureUtm();
 const S = { svc: '', agree: false, pay: null, fresh: '', seen: {}, days: null, info: null, day: '', doctor: '', time: '', slots: null, loading: false, name: '', phone: '', busy: false, done: null, error: '' };
 
 /* вызов публичных функций базы: они отдают только свободное время и принимают запись */
+// Воронка записи: на каком шаге клиент остановился (без имени и телефона). Ошибки трекинга клиенту не показываются.
+const SID = (() => { try { let s = sessionStorage.getItem('mitti-sid'); if (!s) { s = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2)).replace(/-/g, '').slice(0, 32); sessionStorage.setItem('mitti-sid', s); } return s; } catch (e) { return String(Date.now()) + Math.random().toString(36).slice(2, 10); } })();
+const tracked = {};
+function track(step, meta, once) {
+  if (once) { if (tracked[step]) return; tracked[step] = 1; }
+  try { Promise.resolve(rpc('public_track', { p_sid: SID, p_step: step, p_meta: meta || null })).catch(() => {}); } catch (e) { /* без трекинга */ }
+}
 async function rpc(fn, args) {
   const r = await fetch(SUPABASE_URL + '/rest/v1/rpc/' + fn, { method: 'POST', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(args || {}) });
   const j = await r.json().catch(() => ({}));
@@ -307,7 +314,7 @@ function render() {
   if (!S.introDone) { S.introDone = true; $('app').classList.add('intro'); setTimeout(() => $('app').classList.remove('intro'), 1400); }
   // при смене экрана (форма → оплата → «записаны») возвращаемся наверх, иначе на телефоне остаётся пустой низ страницы
   const vk = S.thanks ? 'thanks' : S.noshow && !S.resched ? 'noshow' : S.resched ? 'resched' : S.pay && S.pay.pay_status !== 'paid' ? 'pay' : S.done ? 'done' : 'main';
-  if (vk !== S.vk) { S.vk = vk; window.scrollTo(0, 0); }
+  if (vk !== S.vk) { S.vk = vk; window.scrollTo(0, 0); if (vk === 'pay') track('pay_view', null, true); }
   observeReveal();
 }
 let io = null;
@@ -333,12 +340,12 @@ document.addEventListener('click', async (ev) => {
   const lb = ev.target.closest('[data-act=lang-set]'); if (lb) { setLang(lb.dataset.id); lm.hidden = true; render(); return; }
   const b = ev.target.closest('[data-act]'); if (!b) return;
   const act = b.dataset.act, id = b.dataset.id;
-  if (act === 'day') { S.day = id; S.error = ''; await loadSlots(); }
-  else if (act === 'doctor') { S.doctor = id; S.error = ''; await loadSlots(); }
-  else if (act === 'svc') { S.svc = id; S.error = ''; render(); const n = $('b-name'); if (n) n.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
-  else if (act === 'copy') { try { await navigator.clipboard.writeText(String(S.pay.card_number).replace(/\s/g, '')); b.textContent = t('Скопировано'); } catch (e) { /* без буфера */ } }
+  if (act === 'day') { track('day', null, true); S.day = id; S.error = ''; await loadSlots(); }
+  else if (act === 'doctor') { track('doctor', null, true); S.doctor = id; S.error = ''; await loadSlots(); }
+  else if (act === 'svc') { track('service', null, true); S.svc = id; S.error = ''; render(); const n = $('b-name'); if (n) n.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+  else if (act === 'copy') { track('copy_card', null, true); try { await navigator.clipboard.writeText(String(S.pay.card_number).replace(/\s/g, '')); b.textContent = t('Скопировано'); } catch (e) { /* без буфера */ } }
   else if (act === 'again-pay') { S.pay = null; savePay(); S.time = ''; S.svc = ''; S.agree = false; S.error = ''; await loadDays(); await loadSlots(); render(); }
-  else if (act === 'time') { S.time = id; S.svc = ''; S.error = ''; render(); const n = $('b-name'); if (n) n.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+  else if (act === 'time') { track('time', null, true); S.time = id; S.svc = ''; S.error = ''; render(); const n = $('b-name'); if (n) n.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
   else if (act === 'push-on') { await enablePush(); }
   else if (act === 'ns-resched') { S.resched = { id: S.noshow.id, token: S.noshow.token, ns: S.noshow }; S.noshow = null; S.time = ''; S.error = ''; await loadDays(); await loadSlots(); render(); window.scrollTo(0, 0); }
   else if (act === 'resched-back') { S.noshow = S.resched.ns; S.resched = null; S.time = ''; render(); window.scrollTo(0, 0); }
@@ -363,20 +370,22 @@ document.addEventListener('click', async (ev) => {
   else if (act === 'retry') { start(); }
   else if (act === 'book') {
     if ($('b-name')) S.name = $('b-name').value; if ($('b-phone')) S.phone = $('b-phone').value;
-    const fail = (m) => { S.error = m; toast(m); render(); const e = $('b-err'); if (e) e.scrollIntoView({ block: 'center', behavior: 'smooth' }); };
-    if ((S.name || '').trim().length < 2) return fail(t(ERR.bad_name));
-    if (localDigits(S.phone).length < 9) return fail(t(ERR.bad_phone));
-    if (prepayOn() && !S.svc) return fail(t(ERR.bad_service));
-    if (prepayOn() && !S.agree) return fail(t('Подтвердите, что понимаете условия предоплаты.'));
+    track('book_click');
+    const fail = (m, code) => { track('book_error', { code: code || 'validation' }); S.error = m; toast(m); render(); const e = $('b-err'); if (e) e.scrollIntoView({ block: 'center', behavior: 'smooth' }); };
+    if ((S.name || '').trim().length < 2) return fail(t(ERR.bad_name), 'bad_name');
+    if (localDigits(S.phone).length < 9) return fail(t(ERR.bad_phone), 'bad_phone');
+    if (prepayOn() && !S.svc) return fail(t(ERR.bad_service), 'no_service');
+    if (prepayOn() && !S.agree) return fail(t('Подтвердите, что понимаете условия предоплаты.'), 'no_agree');
     S.busy = true; S.error = ''; render();
     try {
       const res = await rpc('public_book', { p_doctor: S.doctor, p_start: S.day + 'T' + S.time + ':00+05:00', p_name: S.name.trim(), p_phone: cleanPhone(S.phone), p_source: SRC, p_utm: loadUtm(), p_service: prepayOn() ? S.svc : null });
       if (res && res.id && res.token) { autoPush(res.id, res.token); addToken(res.token); }
+      track(res && res.deposit ? 'held' : 'done');
       if (res && res.id && res.token) saveTrack({ id: res.id, token: res.token, name: S.name.trim(), snap: { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() } });
       if (res && res.deposit) { S.pay = { ...res, pay_status: 'pending', snap: { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() } }; savePay(); startPolling(); }
       else S.done = { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() };
     } catch (e) {
-      S.error = errText(e); toast(S.error); setTimeout(() => { const el = $('b-err'); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 50);
+      track('book_error', { code: String(e.code || 'net').slice(0, 30) }); S.error = errText(e); toast(S.error); setTimeout(() => { const el = $('b-err'); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 50);
       if (e.code === 'slot_taken' || e.code === 'slot_unavailable') { S.busy = false; await loadSlots(); S.error = errText(e); toast(S.error); const al = document.querySelector('.alert'); if (al) al.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
     }
     S.busy = false; render();
@@ -388,6 +397,7 @@ document.addEventListener('change', async (ev) => {
   if ((el.id === 'rfile' || el.id === 'rfile2') && el.files && el.files[0]) { const f = el.files[0]; el.value = ''; await sendReceipt(f); }
 });
 document.addEventListener('input', (ev) => {
+  if (ev.target.id === 'b-name' || ev.target.id === 'b-phone') track('form', null, true);
   if (ev.target.id === 'b-name') S.name = ev.target.value;
   if (ev.target.id === 'b-phone') {
     const el = ev.target, del = !!(ev.inputType && ev.inputType.indexOf('delete') === 0), pos = el.selectionStart;
@@ -416,12 +426,12 @@ function shrink(file) {
 }
 async function sendReceipt(file) {
   const p = S.pay; if (!p) return;
-  p.uploading = true; p.err = ''; render();
+  track('receipt_pick'); p.uploading = true; p.err = ''; render();
   try {
     const image = await shrink(file);
     const r = await fetch(SUPABASE_URL + '/functions/v1/telegram-bot?op=upload', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY }, body: JSON.stringify({ id: p.id, token: p.token, image, mime: 'image/jpeg' }) });
     const j = await r.json().catch(() => ({}));
-    if (r.ok) p.pay_status = 'review'; else if (j.error === 'expired') p.pay_status = 'expired'; else p.err = t('Не удалось отправить чек. Попробуйте ещё раз.');
+    if (r.ok) { p.pay_status = 'review'; track('receipt_sent'); } else if (j.error === 'expired') p.pay_status = 'expired'; else p.err = t('Не удалось отправить чек. Попробуйте ещё раз.');
   } catch (e) { p.err = t('Не удалось отправить чек. Попробуйте ещё раз.'); }
   p.uploading = false; savePay(); render();
 }
@@ -454,7 +464,8 @@ async function start() {
   try { S.info = await rpc('public_info'); S.error = ''; await loadDays(); if (S.info.doctors.length === 1) S.doctor = S.info.doctors[0].id; const w = workDays(); S.day = w.filter((d) => !S.days || S.days[d] !== 0)[0] || w[0] || ''; if (S.day && S.doctor) await loadSlots(); }
   catch (e) { S.error = t('Нет связи. Попробуйте ещё раз.'); }
   try { const sv = JSON.parse(localStorage.getItem(PAY_KEY) || 'null'); if (sv && sv.id && sv.token) { S.pay = sv; await pollPay(); if (S.pay) startPolling(); } } catch (e) { /* нет сохранённой брони */ }
-  initTour({ S, prepayOn });
+  initTour({ S, prepayOn, track });
+  if (S.info) track('open', null, true);
   await loadHist();
   render();
   try { const hasTrack = !!localStorage.getItem(TRACK_KEY); if (!tourDone() && !hasTrack && S.info && !S.pay && !S.done) setTimeout(startTour, 1700); } catch (e) { /* без подсказок */ }

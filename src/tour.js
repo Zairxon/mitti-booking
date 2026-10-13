@@ -28,7 +28,7 @@ function build() {
   document.body.appendChild(root);
   tip.addEventListener('click', (e) => {
     const a = e.target.closest('[data-tour-act]'); if (!a) return;
-    if (a.dataset.tourAct === 'skip') finish(); else if (a.dataset.tourAct === 'next') next();
+    if (a.dataset.tourAct === 'skip') finish(true); else if (a.dataset.tourAct === 'next') next();
   });
 }
 
@@ -86,7 +86,8 @@ const stop = (e) => { if (lockOn() && e.cancelable) e.preventDefault(); };
 const stopKey = (e) => { if (lockOn() && [' ', 'PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown'].indexOf(e.key) >= 0 && !/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test((e.target && e.target.tagName) || '')) e.preventDefault(); };
 const onMove = () => { if (step >= 0 && root && root.style.display !== 'none') { const s = steps()[step]; place(s && !s.intro ? document.querySelector(s.sel) : null); } };
 
-function finish() {
+function finish(skipped) {
+  if (step >= 0 && C && C.track) C.track(skipped === true ? 'tour_skip' : 'tour_done', null, true);
   try { localStorage.setItem(KEY, '1'); } catch (e) { /* не страшно */ }
   step = -1; shown = false;
   if (obs) { obs.disconnect(); obs = null; }
@@ -98,7 +99,7 @@ function finish() {
 export function initTour(ctx) { C = ctx; }
 export function startTour() {
   if (!C || step >= 0) return;
-  step = 0; shown = false; build(); render();
+  step = 0; shown = false; build(); render(); if (C.track) C.track('tour_start', null, true);
   document.addEventListener('click', onClick, true); addEventListener('wheel', stop, { capture: true, passive: false }); addEventListener('touchmove', stop, { capture: true, passive: false }); addEventListener('keydown', stopKey, true); addEventListener('resize', onMove); addEventListener('scroll', onMove, true);
   obs = new MutationObserver(sync); obs.observe(document.getElementById('app'), { childList: true, subtree: true });
   poll = setInterval(onMove, 250);
