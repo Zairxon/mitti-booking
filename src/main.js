@@ -120,13 +120,31 @@ const PAY_KEY = 'mitti-pay';
 const savePay = () => { try { if (S.pay) localStorage.setItem(PAY_KEY, JSON.stringify(S.pay)); else localStorage.removeItem(PAY_KEY); } catch (e) { /* без запоминания */ } };
 const TRACK_KEY = 'mitti-visit';
 const saveTrack = (o) => { try { if (o) localStorage.setItem(TRACK_KEY, JSON.stringify(o)); else localStorage.removeItem(TRACK_KEY); } catch (e) { /* без запоминания */ } };
+// журнал визитов: токены своих броней хранятся на телефоне, по ним сервер отдаёт историю (без токена чужую историю не увидеть)
+const TOK_KEY = 'mitti-tokens';
+const getTokens = () => { try { const a = JSON.parse(localStorage.getItem(TOK_KEY) || '[]'); return Array.isArray(a) ? a.filter((x) => typeof x === 'string') : []; } catch (e) { return []; } };
+const addToken = (tok) => { try { if (!tok) return; const a = getTokens().filter((x) => x !== tok); a.push(tok); localStorage.setItem(TOK_KEY, JSON.stringify(a.slice(-10))); } catch (e) { /* без журнала */ } };
+async function loadHist() {
+  try { const tr = JSON.parse(localStorage.getItem(TRACK_KEY) || 'null'); if (tr && tr.token) addToken(tr.token); } catch (e) { /* нет записи */ }
+  const tk = getTokens(); if (!tk.length) { S.hist = null; return; }
+  try { S.hist = await rpc('public_my_visits', { p_tokens: tk }); } catch (e) { /* журнал не обязателен */ }
+}
+const isoDay = (iso) => new Date(Date.parse(iso) + TZ).toISOString().slice(0, 10);
+function histBlock() {
+  const h = S.hist; if (!h || !(h.visits > 0)) return '';
+  return '<section class="hist"><h2 class="hh">' + t('Журнал визитов') + '</h2><div class="panel"><ul class="list">' +
+    '<li><div class="li-main"><b>' + t('Визитов в клинику') + '</b></div><span class="num">' + h.visits + '</span></li>' +
+    '<li><div class="li-main"><b>' + t('Последний визит') + '</b></div><span>' + esc(dayFull(isoDay(h.last))) + '</span></li>' +
+    (h.upcoming ? '<li><div class="li-main"><b>' + t('Ближайшая запись') + '</b></div><span>' + esc(dayFull(isoDay(h.upcoming.starts_at))) + ', ' + new Date(Date.parse(h.upcoming.starts_at) + TZ).toISOString().slice(11, 16) + '</span></li>' : '') +
+    (h.list || []).slice(0, 5).map((v) => '<li class="hv"><div class="li-main"><span class="small muted">' + esc(dayFull(isoDay(v.starts_at))) + (v.doctor ? ' · ' + esc(v.doctor) : '') + '</span></div></li>').join('') + '</ul></div></section>';
+}
 // после приёма сотрудник нажимает «Прошёл»: тогда показываем клиенту благодарность
 async function checkVisit() {
   let tr = null; try { tr = JSON.parse(localStorage.getItem(TRACK_KEY) || 'null'); } catch (e) { /* нет записи */ }
   if (!tr || !tr.id || !tr.token) return;
   try {
     const j = await rpc('public_booking_status', { p_id: tr.id, p_token: tr.token });
-    if (j.finished) { saveTrack(null); S.noshow = null; S.thanks = { name: tr.name || '' }; render(); }
+    if (j.finished) { saveTrack(null); S.noshow = null; S.thanks = { name: tr.name || '' }; await loadHist(); render(); }
     else if (j.status === 'booked' && tr.snap && !tr.dismissed && !S.done && !S.pay && !S.noshow && !S.thanks && !S.resched && (j.pay_status === 'none' || j.pay_status === 'paid')) {
       S.done = { ...tr.snap, paid: j.pay_status === 'paid' }; render();
     }
@@ -185,7 +203,7 @@ function thanksScreen() {
   const nm = S.thanks.name ? '<p class="thn">' + esc(S.thanks.name) + '</p>' : '';
   return '<section><div class="panel thanks"><div class="thheart" aria-hidden="true">💗</div><h2>' + t('Спасибо, что выбрали «Митти юракча»!') + '</h2>' + nm +
     '<p class="thtx">' + t('Благодарим вас за доверие и за то, что воспользовались нашими услугами. Мы желаем вам и вашему малышу крепкого здоровья.') + '</p>' +
-    '<p class="thsm">' + t('Будем рады видеть вас снова.') + '</p>' +
+    '<p class="thsm">' + t('Будем рады видеть вас снова.') + '</p>' + histBlock() +
     '<div class="row"><button class="btn" data-act="thanks-close">' + t('Записаться снова') + '</button></div></div></section>';
 }
 const prepayNote = () => '<div class="prepay"><span class="pi" aria-hidden="true">💳</span><p>' + t('Бронь с предоплатой. Оплата вносится вперёд на карту клиники, сумма зависит от услуги. На оплату даётся {min} минут, затем время освободится.', { min: S.info.prepay.hold_minutes }) + '</p></div>';
@@ -242,7 +260,7 @@ function view() {
     days.forEach((d) => { cells += open(d) ? '<button type="button" class="pill dayp" data-act="day" data-id="' + d + '" aria-pressed="' + (S.day === d) + '" aria-label="' + esc(dayFull(d)) + '">' + +d.slice(8, 10) + '</button>' : '<span class="dayp off" aria-hidden="true">·</span>'; });
     cal += '<div class="mblock"><p class="mname">' + esc(months()[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4)) + '</p><div class="cal7">' + cells + '</div></div>';
   }
-  let h = '<h2 class="bookh">' + t(S.resched ? 'Выберите новое время' : 'Записаться на приём') + '</h2>' + (S.resched ? '<p class="small center muted">' + t('Предоплата уже внесена, платить ещё раз не нужно.') + '</p>' : '') + '<section><h2 class="stp"><i>1</i>' + t('Выберите день') + '</h2><div class="months">' + cal + '</div></section>';
+  let h = (S.resched ? '' : histBlock()) + '<h2 class="bookh">' + t(S.resched ? 'Выберите новое время' : 'Записаться на приём') + '</h2>' + (S.resched ? '<p class="small center muted">' + t('Предоплата уже внесена, платить ещё раз не нужно.') + '</p>' : '') + '<section><h2 class="stp"><i>1</i>' + t('Выберите день') + '</h2><div class="months">' + cal + '</div></section>';
   h += '<section><h2 class="stp"><i>2</i>' + t('Выберите врача') + '</h2><div class="pills" data-tour="doctors">' + S.info.doctors.map((d) => '<button type="button" class="pill" data-act="doctor" data-id="' + esc(d.id) + '" aria-pressed="' + (S.doctor === d.id) + '"' + (docWorks(d, S.day) ? '' : ' disabled title="' + esc(t('В этот день не работает')) + '"') + '><i class="dot" style="--c:' + esc(d.color) + '"></i>' + esc(d.name) + '</button>').join('') + '</div></section>';
   h += '<section><h2 class="stp"><i>3</i>' + t('Выберите время') + '</h2>';
   if (S.error && !S.time) h += '<p class="alert">' + esc(S.error) + '</p>';
@@ -351,7 +369,7 @@ document.addEventListener('click', async (ev) => {
     S.busy = true; S.error = ''; render();
     try {
       const res = await rpc('public_book', { p_doctor: S.doctor, p_start: S.day + 'T' + S.time + ':00+05:00', p_name: S.name.trim(), p_phone: cleanPhone(S.phone), p_source: SRC, p_utm: loadUtm(), p_service: prepayOn() ? S.svc : null });
-      if (res && res.id && res.token) autoPush(res.id, res.token);
+      if (res && res.id && res.token) { autoPush(res.id, res.token); addToken(res.token); }
       if (res && res.id && res.token) saveTrack({ id: res.id, token: res.token, name: S.name.trim(), snap: { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() } });
       if (res && res.deposit) { S.pay = { ...res, pay_status: 'pending', snap: { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() } }; savePay(); startPolling(); }
       else S.done = { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() };
@@ -435,6 +453,7 @@ async function start() {
   catch (e) { S.error = t('Нет связи. Попробуйте ещё раз.'); }
   try { const sv = JSON.parse(localStorage.getItem(PAY_KEY) || 'null'); if (sv && sv.id && sv.token) { S.pay = sv; await pollPay(); if (S.pay) startPolling(); } } catch (e) { /* нет сохранённой брони */ }
   initTour({ S, prepayOn });
+  await loadHist();
   render();
   try { const hasTrack = !!localStorage.getItem(TRACK_KEY); if (!tourDone() && !hasTrack && S.info && !S.pay && !S.done) setTimeout(startTour, 1700); } catch (e) { /* без подсказок */ }
   const hb = document.getElementById('helpbtn'); if (hb) hb.addEventListener('click', () => { try { localStorage.removeItem('mitti-tour'); } catch (e) { /* не страшно */ } if (!S.done && !S.pay && !S.noshow && !S.thanks && !S.resched) { window.scrollTo(0, 0); startTour(); } });

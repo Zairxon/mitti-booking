@@ -721,3 +721,8 @@ h2.stp i{width:24px!important;height:24px!important;font-size:13px!important}
 [data-tour=data] .btn{min-height:42px!important;font-size:14.5px!important;padding:8px 14px!important}
 /* пункты 2, 3 и далее отделены от предыдущего блока */
 #app section+section>h2.stp{margin-top:26px!important}
+
+/* журнал визитов клиента */
+.hist{margin-bottom:14px}
+.hist .hh{font-size:15px;margin:0 0 6px}
+.hist .hv{padding-top:4px;padding-bottom:4px;min-height:0}
