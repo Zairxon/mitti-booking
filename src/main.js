@@ -40,7 +40,7 @@ function loadUtm() {
 }
 captureUtm();
 
-const S = { svc: '', agree: false, pay: null, fresh: '', seen: {}, days: null, info: null, day: '', doctor: '', time: '', slots: null, loading: false, name: '', phone: '', busy: false, done: null, error: '' };
+const S = { svc: '', agree: false, consent: false, legal: '', cancelAsk: false, pay: null, fresh: '', seen: {}, days: null, info: null, day: '', doctor: '', time: '', slots: null, loading: false, name: '', phone: '', busy: false, done: null, error: '' };
 
 /* вызов публичных функций базы: они отдают только свободное время и принимают запись */
 // Воронка записи: на каком шаге клиент остановился (без имени и телефона). Ошибки трекинга клиенту не показываются.
@@ -64,6 +64,11 @@ const ERR = {
   bad_phone: 'Проверьте номер телефона.',
   too_many: 'У вас уже есть 3 активные записи на этот номер. Отмените ненужную в боте или позвоните в клинику.',
   bad_service: 'Выберите услугу.',
+  consent: 'Подтвердите согласие на обработку персональных данных.',
+  too_late: 'До приёма меньше часа: позвоните в клинику.',
+  paid_call: 'Запись с оплатой отменяется по звонку в клинику.',
+  cannot_cancel: 'Эту запись уже нельзя отменить.',
+  not_found: 'Запись не найдена.',
 };
 // Всплывающее сообщение внизу экрана: видно, где бы ни была прокручена страница
 function toast(msg) {
@@ -82,6 +87,38 @@ const docName = (id) => (S.info.doctors.filter((d) => d.id === id)[0] || { name:
 
 const L = (o) => pick(o);
 const nextYm = (ym) => { const y = +ym.slice(0, 4), mo = +ym.slice(5, 7); return mo === 12 ? (y + 1) + '-01' : y + '-' + String(mo + 1).padStart(2, '0'); };
+// Политика конфиденциальности и публичная оферта: типовые тексты, их проверяет юрист клиники
+const LEGAL = {
+  privacy: ['Политика конфиденциальности', [
+    ['Какие данные мы собираем', 'Имя, номер телефона, выбранные день, время и врач, сведения о предоплате. Диагнозы и жалобы при записи на сайте мы не спрашиваем.'],
+    ['Для чего', 'Чтобы записать вас на приём, связаться с вами по поводу записи, подтвердить оплату, учесть приём и выполнить требования законодательства.'],
+    ['Кому передаются', 'Данные доступны сотрудникам клиники в рамках их работы. Мы не передаём их третьим лицам, кроме случаев, когда этого требует закон.'],
+    ['Как хранятся', 'Данные хранятся на защищённых серверах с ограниченным доступом. Срок хранения — столько, сколько нужно для записи и учёта.'],
+    ['Ваши права', 'Вы можете узнать, какие данные о вас хранятся, исправить их или попросить удалить, позвонив в клинику. Согласие можно отозвать в любое время.']]],
+  offer: ['Публичная оферта', [
+    ['Услуга', 'Клиника «Митти юракча» оказывает услуги ультразвукового исследования по предварительной записи. Нажимая «Записаться», вы принимаете эти условия.'],
+    ['Предоплата', 'Если включена предоплата, её сумма указана при выборе услуги и засчитывается в стоимость приёма. Время удерживается за вами ограниченный срок, затем бронь снимается автоматически, если оплата не подтверждена.'],
+    ['Отмена и перенос', 'Запись без оплаты можно отменить на сайте не позже чем за час до приёма. Запись с оплатой изменяется по звонку в клинику.'],
+    ['Если вы не пришли', 'При оплаченной записи, если вы не пришли, вы можете выбрать другое время без повторной оплаты или запросить возврат предоплаты. Возврат оформляет клиника после вашей заявки.'],
+    ['Результат исследования', 'Результат УЗИ оценивает врач. Исследование не заменяет очную консультацию специалиста.'],
+    ['Контакты', 'Телефоны и адрес клиники указаны на сайте.']]],
+};
+function legalSheet() {
+  const d = LEGAL[S.legal]; if (!d) return '';
+  return '<div class="legal-ov" data-act="legal-close" role="dialog" aria-modal="true"><div class="legal-card"><button type="button" class="legal-x" data-act="legal-close" aria-label="' + esc(t('Закрыть')) + '">×</button><h2>' + t(d[0]) + '</h2>' +
+    d[1].map((x) => '<h3>' + t(x[0]) + '</h3><p class="small">' + t(x[1]) + '</p>').join('') + '<div class="row"><button type="button" class="btn" data-act="legal-close">' + t('Закрыть') + '</button></div></div></div>';
+}
+// «Добавить в календарь»: файл .ics, открывается в календаре телефона
+function icsDownload() {
+  const d = S.done; if (!d) return;
+  const ms = Date.parse(d.day + 'T' + d.time + ':00+05:00'), len = ((S.info && S.info.slot_minutes) || 30) * 60000, z = (x) => new Date(x).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const addr = ((S.info && S.info.info) || {}).address || '', esc2 = (s) => String(s || '').replace(/[\\;,]/g, (c) => '\\' + c).replace(/\n/g, ' ');
+  const body = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Mitti yurakcha//Navbat//RU', 'BEGIN:VEVENT', 'UID:' + (SID + d.day + d.time) + '@mitti', 'DTSTAMP:' + z(Date.now()), 'DTSTART:' + z(ms), 'DTEND:' + z(ms + len),
+    'SUMMARY:' + esc2('«Митти юракча»: ' + t('УЗИ')), 'LOCATION:' + esc2(addr), 'DESCRIPTION:' + esc2(t('Врач') + ': ' + docName(d.doctor)),
+    'BEGIN:VALARM', 'TRIGGER:-PT60M', 'ACTION:DISPLAY', 'DESCRIPTION:' + esc2(t('Скоро приём')), 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+  const url = URL.createObjectURL(new Blob([body], { type: 'text/calendar;charset=utf-8' })), a = document.createElement('a');
+  a.href = url; a.download = 'priem.ics'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
 function mapHref() {
   const i = (S.info && S.info.info) || {};
   if (i.map_url) return i.map_url;
@@ -255,7 +292,9 @@ function view() {
       '<li><div class="li-main"><b>' + t('Врач') + '</b></div><span>' + esc(docName(S.done.doctor)) + '</span></li>' +
       '<li><div class="li-main"><b>' + t('Имя') + '</b></div><span>' + esc(S.done.name) + '</span></li></ul>' +
       '<p class="note">' + t('Пожалуйста, приходите за 5 минут до приёма. Если планы изменились, позвоните в клинику, чтобы отменить запись.') + '</p>' +
-      tgNotifyBlock() + '<div class="row"><button class="btn ghost" data-act="again">' + t('Записать ещё') + '</button></div></div></section>';
+      '<div class="row">' + (mapHref() ? '<a class="btn ghost" href="' + esc(mapHref()) + '" target="_blank" rel="noopener">📍 ' + t('Как добраться') + '</a>' : '') + '<button type="button" class="btn ghost" data-act="ics">📅 ' + t('Добавить в календарь') + '</button></div>' +
+      tgNotifyBlock() + '<div class="row"><button class="btn ghost" data-act="again">' + t('Записать ещё') + '</button></div>' +
+      (S.done.paid ? '' : S.cancelAsk ? '<div class="cancelbox"><p class="small">' + t('Точно отменить запись?') + '</p><div class="row"><button type="button" class="btn danger solid" data-act="cancel-yes">' + t('Да, отменить') + '</button><button type="button" class="btn ghost" data-act="cancel-no">' + t('Нет') + '</button></div></div>' : '<div class="row"><button type="button" class="btn ghost danger" data-act="cancel-ask">' + t('Отменить запись') + '</button></div>') + '</div></section>';
   }
   // дни неделями: заголовок Пн–Вс, ряды по семь, каждый месяц отдельным блоком; нажимаются только дни со свободным временем
   const today = todayTz(), last = addDays(today, S.info.days_ahead), wd = weekdays();
@@ -295,6 +334,7 @@ function view() {
       '<div class="fld"><span>' + t('Телефон') + '</span><input id="b-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+998 90 123 45 67" value="' + esc(S.phone) + '"></div>' +
       '<p class="small muted">' + esc(dayFull(S.day)) + ' · <b>' + S.time + '</b> · ' + esc(docName(S.doctor)) + '</p>' +
       (pre ? '<p class="small"><b>' + esc(L((svcOf(S.svc) || {}).name)) + '</b> · ' + t('Предоплата') + ': <b class="num">' + money((svcOf(S.svc) || {}).deposit) + ' ' + t('сум') + '</b></p><label class="agree"><input type="checkbox" id="b-agree"' + (S.agree ? ' checked' : '') + '><span>' + t('Я понимаю, что оплата вносится вперёд') + '</span></label>' : '') +
+      '<label class="agree"><input type="checkbox" id="b-consent"' + (S.consent ? ' checked' : '') + '><span>' + t('Я согласен на обработку персональных данных.') + ' <button type="button" class="linkbtn" data-act="legal" data-id="privacy">' + t('Политика конфиденциальности') + '</button> · <button type="button" class="linkbtn" data-act="legal" data-id="offer">' + t('Публичная оферта') + '</button></span></label>' +
       (S.error ? '<p class="alert errbox" id="b-err" role="alert">⚠️ ' + esc(S.error) + '</p>' : '') +
       '<div class="row"><button class="btn" data-act="book"' + (S.busy ? ' disabled' : '') + '>' + t(S.busy ? 'Отправляю…' : pre ? 'Записаться и оплатить' : 'Записаться') + '</button></div></div>' +
       '<p class="note">' + t('Нажимая «Записаться», вы соглашаетесь, что клиника свяжется с вами по этому номеру.') + '</p></section>';
@@ -310,7 +350,7 @@ function render() {
   const sl = S.info && S.info.info ? L(S.info.info.slogan) : '';
   $('slogan').textContent = sl; $('slogan').hidden = !sl;
   $('app').dataset.fresh = S.fresh; S.fresh = '';
-  $('app').innerHTML = view();
+  $('app').innerHTML = view() + legalSheet();
   if (!S.introDone) { S.introDone = true; $('app').classList.add('intro'); setTimeout(() => $('app').classList.remove('intro'), 1400); }
   // при смене экрана (форма → оплата → «записаны») возвращаемся наверх, иначе на телефоне остаётся пустой низ страницы
   const vk = S.thanks ? 'thanks' : S.noshow && !S.resched ? 'noshow' : S.resched ? 'resched' : S.pay && S.pay.pay_status !== 'paid' ? 'pay' : S.done ? 'done' : 'main';
@@ -344,9 +384,22 @@ document.addEventListener('click', async (ev) => {
   else if (act === 'doctor') { track('doctor', null, true); S.doctor = id; S.error = ''; await loadSlots(); }
   else if (act === 'svc') { track('service', null, true); S.svc = id; S.error = ''; render(); const n = $('b-name'); if (n) n.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
   else if (act === 'copy') { track('copy_card', null, true); try { await navigator.clipboard.writeText(String(S.pay.card_number).replace(/\s/g, '')); b.textContent = t('Скопировано'); } catch (e) { /* без буфера */ } }
-  else if (act === 'again-pay') { S.pay = null; savePay(); S.time = ''; S.svc = ''; S.agree = false; S.error = ''; await loadDays(); await loadSlots(); render(); }
+  else if (act === 'again-pay') { if (S.pay && S.pay.id && S.pay.pay_status === 'pending') rpc('public_cancel', { p_id: S.pay.id, p_token: S.pay.token }).catch(() => {}); S.pay = null; savePay(); S.time = ''; S.svc = ''; S.agree = false; S.error = ''; await loadDays(); await loadSlots(); render(); }
   else if (act === 'time') { track('time', null, true); S.time = id; S.svc = ''; S.error = ''; render(); const n = $('b-name'); if (n) n.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
   else if (act === 'push-on') { await enablePush(); }
+  else if (act === 'legal') { S.legal = id; render(); }
+  else if (act === 'legal-close') { if (b === ev.target || b.classList.contains('legal-x') || b.classList.contains('btn')) { S.legal = ''; render(); } }
+  else if (act === 'ics') icsDownload();
+  else if (act === 'cancel-ask') { S.cancelAsk = true; render(); }
+  else if (act === 'cancel-no') { S.cancelAsk = false; render(); }
+  else if (act === 'cancel-yes') {
+    let tr = null; try { tr = JSON.parse(localStorage.getItem(TRACK_KEY) || 'null'); } catch (e) { /* нет записи */ }
+    S.cancelAsk = false;
+    if (!tr || !tr.id) { toast(t(ERR.not_found)); render(); return; }
+    try { await rpc('public_cancel', { p_id: tr.id, p_token: tr.token }); saveTrack(null); S.done = null; S.time = ''; toast(t('Запись отменена')); await loadDays(); await loadSlots(); }
+    catch (e) { toast(errText(e)); }
+    render();
+  }
   else if (act === 'ns-resched') { S.resched = { id: S.noshow.id, token: S.noshow.token, ns: S.noshow }; S.noshow = null; S.time = ''; S.error = ''; await loadDays(); await loadSlots(); render(); window.scrollTo(0, 0); }
   else if (act === 'resched-back') { S.noshow = S.resched.ns; S.resched = null; S.time = ''; render(); window.scrollTo(0, 0); }
   else if (act === 'resched-go') {
@@ -375,11 +428,12 @@ document.addEventListener('click', async (ev) => {
     if ((S.name || '').trim().length < 2) return fail(t(ERR.bad_name), 'bad_name');
     if (localDigits(S.phone).length < 9) return fail(t(ERR.bad_phone), 'bad_phone');
     if (prepayOn() && !S.svc) return fail(t(ERR.bad_service), 'no_service');
+    if (!S.consent) return fail(t(ERR.consent), 'no_consent');
     if (prepayOn() && !S.agree) return fail(t('Подтвердите, что понимаете условия предоплаты.'), 'no_agree');
     S.busy = true; S.error = ''; render();
     try {
       const res = await rpc('public_book', { p_doctor: S.doctor, p_start: S.day + 'T' + S.time + ':00+05:00', p_name: S.name.trim(), p_phone: cleanPhone(S.phone), p_source: SRC, p_utm: loadUtm(), p_service: prepayOn() ? S.svc : null });
-      if (res && res.id && res.token) { autoPush(res.id, res.token); addToken(res.token); }
+      if (res && res.id && res.token) { autoPush(res.id, res.token); addToken(res.token); rpc('public_consent', { p_id: res.id, p_token: res.token }).catch(() => {}); }
       track(res && res.deposit ? 'held' : 'done');
       if (res && res.id && res.token) saveTrack({ id: res.id, token: res.token, name: S.name.trim(), snap: { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() } });
       if (res && res.deposit) { S.pay = { ...res, pay_status: 'pending', snap: { day: S.day, time: S.time, doctor: S.doctor, name: S.name.trim() } }; savePay(); startPolling(); }
@@ -394,6 +448,7 @@ document.addEventListener('click', async (ev) => {
 document.addEventListener('change', async (ev) => {
   const el = ev.target;
   if (el.id === 'b-agree') { S.agree = el.checked; return; }
+  if (el.id === 'b-consent') { S.consent = el.checked; return; }
   if ((el.id === 'rfile' || el.id === 'rfile2') && el.files && el.files[0]) { const f = el.files[0]; el.value = ''; await sendReceipt(f); }
 });
 document.addEventListener('input', (ev) => {

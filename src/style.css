@@ -727,3 +727,13 @@ h2.stp i{width:24px!important;height:24px!important;font-size:13px!important}
 .hist .hh{font-size:15px;margin:0 0 6px}
 .hist .hv{padding-top:4px;padding-bottom:4px;min-height:0}
 .hist .panel+.panel{margin-top:8px}.hist .hn{margin:0 0 4px;font-weight:700}
+
+/* согласие, документы, отмена */
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;font:inherit;cursor:pointer}
+.legal-ov{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center}
+.legal-card{position:relative;width:100%;max-width:560px;max-height:88vh;overflow:auto;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:16px 16px 0 0;padding:18px 16px 22px;display:flex;flex-direction:column;gap:8px}
+.legal-card h2{padding-right:34px}
+.legal-card h3{font-size:14px;margin:8px 0 0}
+.legal-x{position:absolute;right:8px;top:8px;width:34px;height:34px;border:0;border-radius:50%;background:var(--soft);color:var(--muted);font-size:20px;cursor:pointer;line-height:1}
+@media (min-width:700px){.legal-ov{align-items:center}.legal-card{border-radius:16px}}
+.cancelbox{border:1px dashed var(--line);border-radius:12px;padding:12px;text-align:center}
