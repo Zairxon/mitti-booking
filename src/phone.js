@@ -1,7 +1,10 @@
 // Телефон всегда в виде +998 12 123 12 12: +998 ставится сам, цифры группируются при наборе.
 export function localDigits(s) {
-  let d = String(s || '').replace(/\D/g, '');
-  if (d.startsWith('998')) d = d.slice(3);
+  const str = String(s || '').trim();
+  // «+998 …» из поля ввода: код страны всегда отбрасываем; номер без «+» вида 99 888 77 66 (9 цифр) трогать нельзя
+  if (/^\+\s*998/.test(str)) return str.replace(/^\+\s*998/, '').replace(/\D/g, '').slice(0, 9);
+  let d = str.replace(/\D/g, '');
+  if (d.startsWith('998') && d.length > 9) d = d.slice(3);
   return d.slice(0, 9);
 }
 // Для поля ввода. deleting = пользователь стирает (иначе «+998 » вернулся бы навсегда).

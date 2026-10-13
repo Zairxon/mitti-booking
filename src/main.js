@@ -265,7 +265,7 @@ function view() {
   if (!S.resched && S.time && (!pre || S.svc)) {
     h += '<section><h2 class="stp"><i>' + (pre ? '5' : '4') + '</i>' + t('Ваши данные') + '</h2><div class="panel" data-tour="data">' +
       '<div class="fld"><span>' + t('Ваше имя') + '</span><input id="b-name" type="text" autocomplete="name" value="' + esc(S.name) + '"></div>' +
-      '<div class="fld"><span>' + t('Телефон') + '</span><input id="b-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+998 90 123 45 67" maxlength="17" value="' + esc(S.phone) + '"></div>' +
+      '<div class="fld"><span>' + t('Телефон') + '</span><input id="b-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+998 90 123 45 67" value="' + esc(S.phone) + '"></div>' +
       '<p class="small muted">' + esc(dayFull(S.day)) + ' · <b>' + S.time + '</b> · ' + esc(docName(S.doctor)) + '</p>' +
       (pre ? '<p class="small"><b>' + esc(L((svcOf(S.svc) || {}).name)) + '</b> · ' + t('Предоплата') + ': <b class="num">' + money((svcOf(S.svc) || {}).deposit) + ' ' + t('сум') + '</b></p><label class="agree"><input type="checkbox" id="b-agree"' + (S.agree ? ' checked' : '') + '><span>' + t('Я понимаю, что оплата вносится вперёд') + '</span></label>' : '') +
       (S.error ? '<p class="alert errbox" id="b-err" role="alert">⚠️ ' + esc(S.error) + '</p>' : '') +
@@ -369,7 +369,13 @@ document.addEventListener('change', async (ev) => {
 });
 document.addEventListener('input', (ev) => {
   if (ev.target.id === 'b-name') S.name = ev.target.value;
-  if (ev.target.id === 'b-phone') { const el = ev.target, del = !!(ev.inputType && ev.inputType.indexOf('delete') === 0); el.value = fmtPhoneInput(el.value, del); S.phone = el.value; }
+  if (ev.target.id === 'b-phone') {
+    const el = ev.target, del = !!(ev.inputType && ev.inputType.indexOf('delete') === 0), pos = el.selectionStart;
+    // сколько цифр номера стоит левее курсора: после форматирования курсор возвращаем туда же, чтобы можно было исправить цифру в середине
+    const before = pos == null ? -1 : localDigits('+998' + el.value.slice(0, pos).replace(/^\+?\s*998/, '')).length;
+    el.value = fmtPhoneInput(el.value, del); S.phone = el.value;
+    if (before >= 0 && document.activeElement === el) { let n = 0, i = 0; if (before > 0) for (; i < el.value.length; i++) { if (/\d/.test(el.value[i]) && i >= 5 && ++n === before) { i++; break; } } else i = Math.min(5, el.value.length); try { el.setSelectionRange(i, i); } catch (e) { /* без курсора */ } }
+  }
 });
 document.addEventListener('focusin', (ev) => { const el = ev.target; if (el.id === 'b-phone' && !el.value) { el.value = '+998 '; S.phone = el.value; } });
 document.addEventListener('focusout', (ev) => { const el = ev.target; if (el.id === 'b-phone' && localDigits(el.value) === '') { el.value = ''; S.phone = ''; } });

@@ -44,7 +44,7 @@ function render() {
   tip.innerHTML = dots + '<b>' + s.title + '</b><p>' + s.text + '</p>' + (!canNext && s.need ? '<p class="tour-need">' + s.need + '</p>' : '') +
     '<div class="tour-btns"><button type="button" class="tour-skip" data-tour-act="skip">' + t('Пропустить') + '</button><button type="button" class="tour-next" data-tour-act="next"' + (canNext ? '' : ' disabled') + '>' + (s.ok || t('Далее')) + '</button></div>';
   if (s.intro) { place(null); return; }
-  if (!shown) { shown = true; const r = el.getBoundingClientRect(); if (r.top < 70 || r.bottom > innerHeight - 40) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+  if (!shown) { shown = true; const r = el.getBoundingClientRect(), th = tip.offsetHeight || 160; if (r.height > innerHeight - th - 60) window.scrollTo({ top: Math.max(0, scrollY + r.top - 24), behavior: 'smooth' }); else if (r.top < 70 || r.bottom > innerHeight - th - 30) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
   place(el);
 }
 
@@ -55,13 +55,15 @@ function place(el) {
     hole.style.cssText = 'left:50%;top:50%;width:0;height:0'; blockers.forEach((b) => { b.style.cssText = 'left:0;top:0;width:100%;height:100%'; });
     tip.style.cssText = 'left:50%;top:50%;transform:translate(-50%,-50%)'; return;
   }
-  const r = el.getBoundingClientRect(), pad = 8, x = Math.max(4, r.left - pad), y = Math.max(4, r.top - pad), w = Math.min(vw - 8, r.width + pad * 2), h = r.height + pad * 2;
+  const r = el.getBoundingClientRect(), pad = 8, th = tip.offsetHeight || 150;
+  const dock = r.bottom + pad + 12 + th > vh - 8 && r.top - pad - 12 - th < 8; // ни снизу, ни сверху места нет: карточка внизу экрана, подсветка только над ней
+  const x = Math.max(4, r.left - pad), y = Math.max(4, r.top - pad), w = Math.min(vw - 8, r.width + pad * 2), h = dock ? Math.max(40, Math.min(r.bottom + pad, vh - th - 20) - y) : r.height + pad * 2;
   hole.style.cssText = 'left:' + x + 'px;top:' + y + 'px;width:' + w + 'px;height:' + h + 'px';
   const set = (b, l, tp, bw, bh) => { b.style.cssText = 'left:' + l + 'px;top:' + tp + 'px;width:' + Math.max(0, bw) + 'px;height:' + Math.max(0, bh) + 'px'; };
   set(blockers[0], 0, 0, vw, y); set(blockers[1], 0, y + h, vw, vh - y - h); set(blockers[2], 0, y, x, h); set(blockers[3], x + w, y, vw - x - w, h);
-  const th = tip.offsetHeight || 150, below = y + h + 12 + th <= vh, tl = Math.min(Math.max(12, x), vw - Math.min(340, vw - 24) - 12);
+  const below = y + h + 12 + th <= vh, tl = Math.min(Math.max(12, x), vw - Math.min(340, vw - 24) - 12);
   tip.style.transform = 'none'; tip.style.left = tl + 'px';
-  tip.style.top = (below ? y + h + 12 : Math.max(8, y - th - 12)) + 'px';
+  tip.style.top = (dock ? vh - th - 8 : below ? y + h + 12 : Math.max(8, y - th - 12)) + 'px';
 }
 
 function onClick(e) {
@@ -78,6 +80,10 @@ function next(fromClick) {
 }
 
 function sync() { clearTimeout(tmo); tmo = setTimeout(() => { if (step >= 0 && root) render(); }, 60); }
+// пока идёт подсказка, страницу не прокрутить (колесом, пальцем, клавишами): только программная прокрутка к нужному блоку
+const lockOn = () => step >= 0 && root && root.style.display !== 'none';
+const stop = (e) => { if (lockOn() && e.cancelable) e.preventDefault(); };
+const stopKey = (e) => { if (lockOn() && [' ', 'PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown'].indexOf(e.key) >= 0 && !/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test((e.target && e.target.tagName) || '')) e.preventDefault(); };
 const onMove = () => { if (step >= 0 && root && root.style.display !== 'none') { const s = steps()[step]; place(s && !s.intro ? document.querySelector(s.sel) : null); } };
 
 function finish() {
@@ -85,7 +91,7 @@ function finish() {
   step = -1; shown = false;
   if (obs) { obs.disconnect(); obs = null; }
   clearInterval(poll);
-  document.removeEventListener('click', onClick, true); removeEventListener('resize', onMove); removeEventListener('scroll', onMove, true);
+  document.removeEventListener('click', onClick, true); removeEventListener('wheel', stop, { capture: true }); removeEventListener('touchmove', stop, { capture: true }); removeEventListener('keydown', stopKey, true); removeEventListener('resize', onMove); removeEventListener('scroll', onMove, true);
   if (root) { root.remove(); root = null; }
 }
 
@@ -93,7 +99,7 @@ export function initTour(ctx) { C = ctx; }
 export function startTour() {
   if (!C || step >= 0) return;
   step = 0; shown = false; build(); render();
-  document.addEventListener('click', onClick, true); addEventListener('resize', onMove); addEventListener('scroll', onMove, true);
+  document.addEventListener('click', onClick, true); addEventListener('wheel', stop, { capture: true, passive: false }); addEventListener('touchmove', stop, { capture: true, passive: false }); addEventListener('keydown', stopKey, true); addEventListener('resize', onMove); addEventListener('scroll', onMove, true);
   obs = new MutationObserver(sync); obs.observe(document.getElementById('app'), { childList: true, subtree: true });
   poll = setInterval(onMove, 250);
 }
