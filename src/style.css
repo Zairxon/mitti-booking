@@ -536,7 +536,6 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;text
 .done h2{animation:rise .6s .2s both}
 .rv{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease;transition-delay:calc(var(--i,0) * 70ms)}
 .rv.in{opacity:1;transform:none}
-.hero-wrap::after{content:"💗";display:block;text-align:center;font-size:26px;margin-top:10px;animation:beat 2.6s ease-in-out infinite;filter:drop-shadow(0 0 10px rgba(255,100,110,.8))}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.rv{opacity:1;transform:none}}
 
 /* ===== Навбат: адрес-кнопка с подсказкой, телефоны с подписью, цельное «О клинике» ===== */
@@ -740,3 +739,7 @@ h2.stp i{width:24px!important;height:24px!important;font-size:13px!important}
 
 /* логотип клиники над названием */
 .hero-logo{display:block;margin:0 auto 6px;width:56px;height:auto;padding:6px 8px;border-radius:14px;background:#fffdf9;box-shadow:0 4px 14px rgba(70,30,0,.35)}
+
+/* логотип в шапке «Навбата» пульсирует как сердцебиение */
+.hero-logo{animation:beat 2.6s ease-in-out infinite;transform-origin:center}
+@media (prefers-reduced-motion:reduce){.hero-logo{animation:none}}
