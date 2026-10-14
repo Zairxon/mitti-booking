@@ -122,7 +122,6 @@ function icsBody(ev) {
     'SUMMARY:' + e2(ev.title), 'LOCATION:' + e2(ev.loc), 'DESCRIPTION:' + e2(ev.desc), 'BEGIN:VALARM', 'TRIGGER:-PT60M', 'ACTION:DISPLAY', 'DESCRIPTION:' + e2(t('Скоро приём')), 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
 }
 const googleCal = (ev) => 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(ev.title) + '&dates=' + icsStamp(ev.start) + '/' + icsStamp(ev.end) + '&details=' + encodeURIComponent(ev.desc) + '&location=' + encodeURIComponent(ev.loc);
-const androidCal = (ev) => 'intent:#Intent;action=android.intent.action.INSERT;type=vnd.android.cursor.dir/event;S.title=' + encodeURIComponent(ev.title) + ';S.description=' + encodeURIComponent(ev.desc) + ';S.eventLocation=' + encodeURIComponent(ev.loc) + ';l.beginTime=' + ev.start + ';l.endTime=' + ev.end + ';end';
 function icsFile() {
   const ev = calEvent(); if (!ev) return;
   const url = URL.createObjectURL(new Blob([icsBody(ev)], { type: 'text/calendar;charset=utf-8' })), a = document.createElement('a');
@@ -131,7 +130,7 @@ function icsFile() {
 function addToCalendar() {
   const ev = calEvent(); if (!ev) return;
   const ua = navigator.userAgent || '';
-  if (/android/i.test(ua)) { window.location.href = androidCal(ev); setTimeout(() => { if (!document.hidden) icsFile(); }, 1400); return; } // календарь не открылся (страница осталась на экране): отдаём файл, его откроет календарь телефона
+  if (/android/i.test(ua)) { icsFile(); toast(t('Откройте скачанный файл — событие добавится в календарь телефона.')); return; } // Chrome не умеет открывать окно создания события календаря (проверено на Samsung S24: у Google и Samsung Календаря нет такого BROWSABLE-входа)
   if (/iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) { const url = URL.createObjectURL(new Blob([icsBody(ev)], { type: 'text/calendar;charset=utf-8' })), l = document.createElement('a'); l.href = url; document.body.appendChild(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000); return; } // без атрибута download Safari сам предлагает «Добавить в календарь»
   window.open(googleCal(ev), '_blank', 'noopener');
 }
@@ -308,7 +307,7 @@ function view() {
       '<li><div class="li-main"><b>' + t('Врач') + '</b></div><span>' + esc(docName(S.done.doctor)) + '</span></li>' +
       '<li><div class="li-main"><b>' + t('Имя') + '</b></div><span>' + esc(S.done.name) + '</span></li></ul>' +
       '<p class="note">' + t('Пожалуйста, приходите за 5 минут до приёма. Если планы изменились, позвоните в клинику, чтобы отменить запись.') + '</p>' +
-      '<div class="row">' + (mapHref() ? '<a class="btn ghost" href="' + esc(mapHref()) + '" target="_blank" rel="noopener">📍 ' + t('Как добраться') + '</a>' : '') + '<button type="button" class="btn ghost" data-act="ics">📅 ' + t('Добавить в календарь') + '</button><button type="button" class="btn ghost" data-act="ics-file">' + t('Скачать файлом') + '</button></div>' +
+      '<div class="row">' + (mapHref() ? '<a class="btn ghost" href="' + esc(mapHref()) + '" target="_blank" rel="noopener">📍 ' + t('Как добраться') + '</a>' : '') + '<button type="button" class="btn ghost" data-act="ics">📅 ' + t('Добавить в календарь') + '</button></div>' +
       tgNotifyBlock() + '<div class="row"><button class="btn ghost" data-act="again">' + t('Записать ещё') + '</button></div>' +
       (S.done.paid ? '' : S.cancelAsk ? '<div class="cancelbox"><p class="small">' + t('Точно отменить запись?') + '</p><div class="row"><button type="button" class="btn danger solid" data-act="cancel-yes">' + t('Да, отменить') + '</button><button type="button" class="btn ghost" data-act="cancel-no">' + t('Нет') + '</button></div></div>' : '<div class="row"><button type="button" class="btn ghost danger" data-act="cancel-ask">' + t('Отменить запись') + '</button></div>') + '</div></section>';
   }
@@ -406,7 +405,6 @@ document.addEventListener('click', async (ev) => {
   else if (act === 'legal') { S.legal = id; render(); }
   else if (act === 'legal-close') { if (b === ev.target || b.classList.contains('legal-x') || b.classList.contains('btn')) { S.legal = ''; render(); } }
   else if (act === 'ics') addToCalendar();
-  else if (act === 'ics-file') icsFile();
   else if (act === 'cancel-ask') { S.cancelAsk = true; render(); }
   else if (act === 'cancel-no') { S.cancelAsk = false; render(); }
   else if (act === 'cancel-yes') {
