@@ -743,3 +743,22 @@ h2.stp i{width:24px!important;height:24px!important;font-size:13px!important}
 /* логотип в шапке «Навбата» пульсирует как сердцебиение */
 .hero-logo{animation:beat 2.6s ease-in-out infinite;transform-origin:center}
 @media (prefers-reduced-motion:reduce){.hero-logo{animation:none}}
+
+/* ===== Компактный вид: всё мельче, чтобы новый клиент видел весь путь записи ===== */
+.hero-wrap{padding:30px 0 2px!important}
+.hero-logo{width:44px!important;height:44px!important;padding:6px!important;margin:0 auto 4px!important;border-radius:11px!important}
+.hero-title{font-size:19px!important}
+.hero-sub{font-size:9.5px!important;margin-top:5px!important;letter-spacing:.12em!important}
+.hero-slogan,.hero-wrap .slogan{font-size:13px!important}
+.bookh{font-size:16px!important;margin:2px 0 -4px!important}
+h2.stp{font-size:15px!important;padding:6px 10px!important;gap:8px!important;margin:0 0 8px!important;border-radius:12px!important}
+h2.stp i{width:24px!important;height:24px!important;font-size:13px!important}
+.monthline{font-size:10.5px!important;margin:2px 0!important}
+.monthline,.mon{padding:3px 12px!important}
+.cal7{gap:4px!important}
+.cal7 .wd{font-size:10px!important;padding:1px 0!important}
+.cal7 .dayp{min-height:32px!important;font-size:12.5px!important;border-radius:10px!important}
+.pill{font-size:12px!important;min-height:30px!important;padding:3px 11px!important}
+.tslot{min-height:30px!important;font-size:12.5px!important;padding:3px 2px!important}
+.panel{padding:12px!important}
+@media (max-width:400px){h2.stp{font-size:14px!important;padding:5px 9px!important}h2.stp i{width:22px!important;height:22px!important;font-size:12px!important}.cal7 .dayp{min-height:30px!important}}

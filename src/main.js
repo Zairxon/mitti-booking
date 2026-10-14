@@ -294,8 +294,12 @@ function view() {
     const first = ym + '-01', dim = new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5, 7), 0)).getUTCDate(), days = [];
     for (let k = 0; k < dim; k++) days.push(addDays(first, k));
     if (!days.some(open)) continue;
-    let cells = wd.map((w) => '<span class="wd">' + w + '</span>').join('') + '<span class="dayp off"></span>'.repeat(isoDow(first) - 1);
-    days.forEach((d) => { cells += open(d) ? '<button type="button" class="pill dayp" data-act="day" data-id="' + d + '" aria-pressed="' + (S.day === d) + '" aria-label="' + esc(dayFull(d)) + '">' + +d.slice(8, 10) + '</button>' : '<span class="dayp off" aria-hidden="true">·</span>'; });
+    // недели без единого свободного дня не показываем: календарь короче и понятнее
+    const items = []; for (let k = 0; k < isoDow(first) - 1; k++) items.push({ o: false, h: '<span class="dayp off"></span>' });
+    days.forEach((d) => { const o = open(d); items.push({ o, h: o ? '<button type="button" class="pill dayp" data-act="day" data-id="' + d + '" aria-pressed="' + (S.day === d) + '" aria-label="' + esc(dayFull(d)) + '">' + +d.slice(8, 10) + '</button>' : '<span class="dayp off" aria-hidden="true">·</span>' }); });
+    while (items.length % 7) items.push({ o: false, h: '<span class="dayp off"></span>' });
+    let cells = wd.map((w) => '<span class="wd">' + w + '</span>').join('');
+    for (let k = 0; k < items.length; k += 7) { const wk = items.slice(k, k + 7); if (wk.some((x) => x.o)) cells += wk.map((x) => x.h).join(''); }
     cal += '<div class="mblock"><p class="mname">' + esc(months()[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4)) + '</p><div class="cal7">' + cells + '</div></div>';
   }
   let h = (S.resched ? '' : histBlock()) + '<h2 class="bookh">' + t(S.resched ? 'Выберите новое время' : 'Записаться на приём') + '</h2>' + (S.resched ? '<p class="small center muted">' + t('Предоплата уже внесена, платить ещё раз не нужно.') + '</p>' : '') + '<section><h2 class="stp"><i>1</i>' + t('Выберите день') + '</h2><div class="months">' + cal + '</div></section>';
