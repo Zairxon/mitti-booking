@@ -122,7 +122,7 @@ function icsBody(ev) {
     'SUMMARY:' + e2(ev.title), 'LOCATION:' + e2(ev.loc), 'DESCRIPTION:' + e2(ev.desc), 'BEGIN:VALARM', 'TRIGGER:-PT60M', 'ACTION:DISPLAY', 'DESCRIPTION:' + e2(t('Скоро приём')), 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
 }
 const googleCal = (ev) => 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(ev.title) + '&dates=' + icsStamp(ev.start) + '/' + icsStamp(ev.end) + '&details=' + encodeURIComponent(ev.desc) + '&location=' + encodeURIComponent(ev.loc);
-const androidCal = (ev) => 'intent:#Intent;action=android.intent.action.INSERT;type=vnd.android.cursor.dir/event;S.title=' + encodeURIComponent(ev.title) + ';S.description=' + encodeURIComponent(ev.desc) + ';S.eventLocation=' + encodeURIComponent(ev.loc) + ';l.beginTime=' + ev.start + ';l.endTime=' + ev.end + ';S.browser_fallback_url=' + encodeURIComponent(googleCal(ev)) + ';end';
+const androidCal = (ev) => 'intent:#Intent;action=android.intent.action.INSERT;type=vnd.android.cursor.dir/event;S.title=' + encodeURIComponent(ev.title) + ';S.description=' + encodeURIComponent(ev.desc) + ';S.eventLocation=' + encodeURIComponent(ev.loc) + ';l.beginTime=' + ev.start + ';l.endTime=' + ev.end + ';end';
 function icsFile() {
   const ev = calEvent(); if (!ev) return;
   const url = URL.createObjectURL(new Blob([icsBody(ev)], { type: 'text/calendar;charset=utf-8' })), a = document.createElement('a');
@@ -131,7 +131,7 @@ function icsFile() {
 function addToCalendar() {
   const ev = calEvent(); if (!ev) return;
   const ua = navigator.userAgent || '';
-  if (/android/i.test(ua)) { window.location.href = androidCal(ev); return; }
+  if (/android/i.test(ua)) { window.location.href = androidCal(ev); setTimeout(() => { if (!document.hidden) icsFile(); }, 1400); return; } // календарь не открылся (страница осталась на экране): отдаём файл, его откроет календарь телефона
   if (/iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) { const url = URL.createObjectURL(new Blob([icsBody(ev)], { type: 'text/calendar;charset=utf-8' })), l = document.createElement('a'); l.href = url; document.body.appendChild(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000); return; } // без атрибута download Safari сам предлагает «Добавить в календарь»
   window.open(googleCal(ev), '_blank', 'noopener');
 }
