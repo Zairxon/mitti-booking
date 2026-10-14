@@ -31,14 +31,15 @@ function captureUtm() {
     const q = new URLSearchParams(location.search), clean = (v, n) => String(v || '').trim().slice(0, n);
     let u = { source: clean(q.get('utm_source') || q.get('ref'), 40), medium: clean(q.get('utm_medium'), 40), campaign: clean(q.get('utm_campaign'), 60) };
     if (!u.source && document.referrer) { try { const h = new URL(document.referrer).hostname.replace(/^www\./, ''); if (h && h !== location.hostname) u = { source: h, medium: 'referral', campaign: '' }; } catch (e) { /* без referrer */ } }
-    if (u.source) localStorage.setItem(UTM_KEY, JSON.stringify({ ...u, t: Date.now() }));
+    if (u.source) { localStorage.setItem(UTM_KEY, JSON.stringify({ ...u, t: Date.now() })); return u; }
   } catch (e) { /* без запоминания */ }
+  return null;
 }
 function loadUtm() {
   try { const u = JSON.parse(localStorage.getItem(UTM_KEY) || 'null'); if (u && u.source && Date.now() - (u.t || 0) < 30 * 86400e3) return { source: u.source, medium: u.medium || '', campaign: u.campaign || '' }; } catch (e) { /* нет метки */ }
   return null;
 }
-captureUtm();
+const FRESH_UTM = captureUtm(); // метка этого захода (из ссылки или с какого сайта пришли): по ней считаются входы
 
 const S = { svc: '', agree: false, consent: false, legal: '', cancelAsk: false, pay: null, fresh: '', seen: {}, days: null, info: null, day: '', doctor: '', time: '', slots: null, loading: false, name: '', phone: '', busy: false, done: null, error: '' };
 
@@ -508,7 +509,7 @@ async function start() {
   catch (e) { S.error = t('Нет связи. Попробуйте ещё раз.'); }
   try { const sv = JSON.parse(localStorage.getItem(PAY_KEY) || 'null'); if (sv && sv.id && sv.token) { S.pay = sv; await pollPay(); if (S.pay) startPolling(); } } catch (e) { /* нет сохранённой брони */ }
   initTour({ S, prepayOn, track });
-  if (S.info) track('open', null, true);
+  if (S.info) track('open', FRESH_UTM ? { source: FRESH_UTM.source, medium: FRESH_UTM.medium, campaign: FRESH_UTM.campaign } : null, true);
   await loadHist();
   render();
   try { const hasTrack = !!localStorage.getItem(TRACK_KEY); if (!tourDone() && !hasTrack && S.info && !S.pay && !S.done) setTimeout(startTour, 1700); } catch (e) { /* без подсказок */ }
