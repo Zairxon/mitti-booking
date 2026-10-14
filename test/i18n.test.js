@@ -5,7 +5,7 @@ import { UZ_DICT, t, setLang } from '../src/i18n.js';
 const src = readFileSync('src/main.js', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
 const keys = new Set();
 for (const m of src.matchAll(/'((?:[^'\\\n]|\\.)*)'/g)) if (/[А-Яа-яЁё]/.test(m[1]) && !m[1].includes('<')) keys.add(m[1]);
-const SKIP = new Set(['Митти юракча', '«Митти юракча»: ', 'РУ', 'ЎЗ']);
+const SKIP = new Set(['Митти юрак', '«Митти юрак»: ', 'РУ', 'ЎЗ']);
 
 describe('сайт записи: узбекский', () => {
   it('у каждой русской строки есть перевод', () => {

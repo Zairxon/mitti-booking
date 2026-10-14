@@ -2,7 +2,7 @@
 self.addEventListener('push', function (e) {
   var d = {};
   try { d = e.data ? e.data.json() : {}; } catch (x) { d = { body: e.data ? e.data.text() : '' }; }
-  e.waitUntil(self.registration.showNotification(d.title || '«Митти юракча»', { body: d.body || '', icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: d.tag || 'mitti', renotify: true, data: { url: d.url || './' } }));
+  e.waitUntil(self.registration.showNotification(d.title || '«Митти юрак»', { body: d.body || '', icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: d.tag || 'mitti', renotify: true, data: { url: d.url || './' } }));
 });
 self.addEventListener('notificationclick', function (e) {
   e.notification.close();

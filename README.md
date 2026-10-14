@@ -1,6 +1,6 @@
 # booking
 
-Приложение клиники «Митти юракча». Vite, чистый JavaScript, база и вход на Supabase.
+Приложение клиники «Митти юрак». Vite, чистый JavaScript, база и вход на Supabase.
 
 ```
 npm install

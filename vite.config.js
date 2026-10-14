@@ -17,9 +17,9 @@ export default defineConfig({
       includeAssets: ['icons/favicon.png', 'icons/apple-touch-icon.png'],
       workbox: { importScripts: ['push-sw.js'], globPatterns: ['**/*.{js,css,html,svg,png,jpg,woff,woff2}'], navigateFallback: 'index.html' },
       manifest: {
-        name: '«Митти юракча»: Навбат',
+        name: '«Митти юрак»: Навбат',
         short_name: 'Навбат',
-        description: '«Митти юракча»: онлайн-запись на УЗИ',
+        description: '«Митти юрак»: онлайн-запись на УЗИ',
         lang: 'ru', start_url: './', scope: './', display: 'standalone', orientation: 'portrait',
         background_color: '#12050a', theme_color: '#12050a',
         icons: [
