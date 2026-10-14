@@ -117,6 +117,9 @@ function mapHref() {
 }
 const telLinks = (cls) => (((S.info.info || {}).phones) || []).map((p) => '<a class="' + cls + '" href="tel:' + esc(cleanPhone(p)) + '"><span aria-hidden="true">📞</span> <span class="num">' + esc(fmtPhone(p)) + '</span></a>').join('');
 // адрес: небольшая кнопка (открывает карту), ориентир; ниже — как записаться на приём
+// «Поделиться ссылкой»: метка ssilkasnavbat показывает в «Главном», сколько человек пришло по таким ссылкам
+const SHARE_URL = 'https://mitti-navbat.vercel.app/?utm_source=ssilkasnavbat&utm_medium=other';
+function shareBlock() { return '<div class="sharebox"><button type="button" class="btn ghost" data-act="share">📤 ' + t('Поделиться ссылкой') + '</button></div>'; }
 function quickBar() {
   const i = S.info.info || {}, mh = mapHref(), lm = L(i.landmark), ph = (i.phones || []).length;
   if (!i.address && !ph) return '';
@@ -302,9 +305,9 @@ function view() {
     for (let k = 0; k < items.length; k += 7) { const wk = items.slice(k, k + 7); if (wk.some((x) => x.o)) cells += wk.map((x) => x.h).join(''); }
     cal += '<div class="mblock"><p class="mname">' + esc(months()[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4)) + '</p><div class="cal7">' + cells + '</div></div>';
   }
-  let h = (S.resched ? '' : histBlock()) + '<h2 class="bookh">' + t(S.resched ? 'Выберите новое время' : 'Записаться на приём') + '</h2>' + (S.resched ? '<p class="small center muted">' + t('Предоплата уже внесена, платить ещё раз не нужно.') + '</p>' : '') + '<section><h2 class="stp"><i>1</i>' + t('Выберите день') + '</h2><div class="months">' + cal + '</div></section>';
-  h += '<section><h2 class="stp"><i>2</i>' + t('Выберите врача') + '</h2><div class="pills" data-tour="doctors">' + S.info.doctors.map((d) => '<button type="button" class="pill" data-act="doctor" data-id="' + esc(d.id) + '" aria-pressed="' + (S.doctor === d.id) + '"' + (docWorks(d, S.day) ? '' : ' disabled title="' + esc(t('В этот день не работает')) + '"') + '><i class="dot" style="--c:' + esc(d.color) + '"></i>' + esc(d.name) + '</button>').join('') + '</div></section>';
-  h += '<section><h2 class="stp"><i>3</i>' + t('Выберите время') + '</h2>';
+  let h = (S.resched ? '' : histBlock()) + '<h2 class="bookh">' + t(S.resched ? 'Выберите новое время' : 'Записаться на приём') + '</h2>' + (S.resched ? '<p class="small center muted">' + t('Предоплата уже внесена, платить ещё раз не нужно.') + '</p>' : '') + '<section class="step"><h2 class="stp"><i>1</i>' + t('Выберите день') + '</h2><div class="months">' + cal + '</div></section>';
+  h += '<section class="step"><h2 class="stp"><i>2</i>' + t('Выберите врача') + '</h2><div class="pills" data-tour="doctors">' + S.info.doctors.map((d) => '<button type="button" class="pill" data-act="doctor" data-id="' + esc(d.id) + '" aria-pressed="' + (S.doctor === d.id) + '"' + (docWorks(d, S.day) ? '' : ' disabled title="' + esc(t('В этот день не работает')) + '"') + '><i class="dot" style="--c:' + esc(d.color) + '"></i>' + esc(d.name) + '</button>').join('') + '</div></section>';
+  h += '<section class="step"><h2 class="stp"><i>3</i>' + t('Выберите время') + '</h2>';
   if (S.error && !S.time) h += '<p class="alert">' + esc(S.error) + '</p>';
   if (!S.day || !S.doctor) h += '<p class="empty">' + t('Сначала выберите день и врача.') + '</p>';
   else if (S.loading) h += '<p class="empty">' + t('Загрузка…') + '</p>';
@@ -320,10 +323,10 @@ function view() {
     h += '<section><div class="panel"><p class="small">' + esc(dayFull(S.day)) + ' · <b>' + S.time + '</b> · ' + esc(docName(S.doctor)) + '</p>' + (S.error ? '<p class="alert errbox" id="b-err" role="alert">⚠️ ' + esc(S.error) + '</p>' : '') + '<div class="row nsrow"><button class="btn" data-act="resched-go"' + (S.busy ? ' disabled' : '') + '>' + t(S.busy ? 'Отправляю…' : 'Перенести запись') + '</button><button class="btn ghost" data-act="resched-back">' + t('Назад') + '</button></div></div></section>';
   }
   if (!S.resched && S.time && pre) {
-    h += '<section><h2 class="stp"><i>4</i>' + t('Выберите услугу') + '</h2>' + prepayNote() + '<div class="svcs">' + S.info.prepay.services.map((x) => '<button type="button" class="pill svc" data-act="svc" data-id="' + esc(x.id) + '" aria-pressed="' + (S.svc === x.id) + '"><b>' + esc(L(x.name)) + '</b><span class="num">' + t('Предоплата') + ': ' + money(x.deposit) + ' ' + t('сум') + '</span></button>').join('') + '</div></section>';
+    h += '<section class="step"><h2 class="stp"><i>4</i>' + t('Выберите услугу') + '</h2>' + prepayNote() + '<div class="svcs">' + S.info.prepay.services.map((x) => '<button type="button" class="pill svc" data-act="svc" data-id="' + esc(x.id) + '" aria-pressed="' + (S.svc === x.id) + '"><b>' + esc(L(x.name)) + '</b><span class="num">' + t('Предоплата') + ': ' + money(x.deposit) + ' ' + t('сум') + '</span></button>').join('') + '</div></section>';
   }
   if (!S.resched && S.time && (!pre || S.svc)) {
-    h += '<section><h2 class="stp"><i>' + (pre ? '5' : '4') + '</i>' + t('Ваши данные') + '</h2><div class="panel" data-tour="data">' +
+    h += '<section class="step"><h2 class="stp"><i>' + (pre ? '5' : '4') + '</i>' + t('Ваши данные') + '</h2><div class="panel" data-tour="data">' +
       '<div class="fld"><span>' + t('Ваше имя') + '</span><input id="b-name" type="text" autocomplete="name" value="' + esc(S.name) + '"></div>' +
       '<div class="fld"><span>' + t('Телефон') + '</span><input id="b-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+998 90 123 45 67" value="' + esc(S.phone) + '"></div>' +
       '<p class="small muted">' + esc(dayFull(S.day)) + ' · <b>' + S.time + '</b> · ' + esc(docName(S.doctor)) + '</p>' +
@@ -333,7 +336,7 @@ function view() {
       '<div class="row"><button class="btn" data-act="book"' + (S.busy ? ' disabled' : '') + '>' + t(S.busy ? 'Отправляю…' : pre ? 'Записаться и оплатить' : 'Записаться') + '</button></div></div>' +
       '<p class="note">' + t('Нажимая «Записаться», вы соглашаетесь, что клиника свяжется с вами по этому номеру.') + '</p></section>';
   }
-  return h + quickBar() + aboutBlock();
+  return h + quickBar() + shareBlock() + aboutBlock();
 }
 
 function render() {
@@ -377,6 +380,7 @@ document.addEventListener('click', async (ev) => {
   if (act === 'day') { track('day', null, true); S.day = id; S.error = ''; await loadSlots(); }
   else if (act === 'doctor') { track('doctor', null, true); S.doctor = id; S.error = ''; await loadSlots(); }
   else if (act === 'svc') { track('service', null, true); S.svc = id; S.error = ''; render(); const n = $('b-name'); if (n) n.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+  else if (act === 'share') { const text = brand() + ': ' + t('Очередь: онлайн-запись на УЗИ'); if (navigator.share) navigator.share({ title: brand(), text, url: SHARE_URL }).catch(() => {}); else { try { await navigator.clipboard.writeText(SHARE_URL); toast(t('Ссылка скопирована')); } catch (e) { toast(SHARE_URL); } } }
   else if (act === 'copy') { track('copy_card', null, true); try { await navigator.clipboard.writeText(String(S.pay.card_number).replace(/\s/g, '')); b.textContent = t('Скопировано'); } catch (e) { /* без буфера */ } }
   else if (act === 'again-pay') { if (S.pay && S.pay.id && S.pay.pay_status === 'pending') rpc('public_cancel', { p_id: S.pay.id, p_token: S.pay.token }).catch(() => {}); S.pay = null; savePay(); S.time = ''; S.svc = ''; S.agree = false; S.error = ''; await loadDays(); await loadSlots(); render(); }
   else if (act === 'time') { track('time', null, true); S.time = id; S.svc = ''; S.error = ''; render(); const n = $('b-name'); if (n) n.scrollIntoView({ block: 'center', behavior: 'smooth' }); }

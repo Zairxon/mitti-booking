@@ -762,3 +762,11 @@ h2.stp i{width:24px!important;height:24px!important;font-size:13px!important}
 .tslot{min-height:30px!important;font-size:12.5px!important;padding:3px 2px!important}
 .panel{padding:12px!important}
 @media (max-width:400px){h2.stp{font-size:14px!important;padding:5px 9px!important}h2.stp i{width:22px!important;height:22px!important;font-size:12px!important}.cal7 .dayp{min-height:30px!important}}
+
+/* каждый шаг записи в общей рамке вместе со своими данными */
+.step{border:1.5px solid rgba(255,190,170,.55);border-radius:16px;background:rgba(255,255,255,.05);padding:10px 10px 12px;box-shadow:0 0 16px rgba(255,140,110,.14);margin-bottom:12px}
+.step>h2.stp{border:0!important;background:transparent!important;box-shadow:none!important;border-radius:0!important;padding:2px 2px 8px!important;margin:0 0 6px!important;border-bottom:1px solid rgba(255,190,170,.28)!important}
+.step>.panel{border:0!important;background:transparent!important;box-shadow:none!important;padding:4px 0 0!important}
+.sharebox{display:flex;justify-content:center;margin:12px 0 4px}
+
+#app section.step+section.step>h2.stp,#app section.step>h2.stp{margin-top:0!important}
