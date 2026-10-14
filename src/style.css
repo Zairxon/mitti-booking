@@ -737,3 +737,6 @@ h2.stp i{width:24px!important;height:24px!important;font-size:13px!important}
 .legal-x{position:absolute;right:8px;top:8px;width:34px;height:34px;border:0;border-radius:50%;background:var(--soft);color:var(--muted);font-size:20px;cursor:pointer;line-height:1}
 @media (min-width:700px){.legal-ov{align-items:center}.legal-card{border-radius:16px}}
 .cancelbox{border:1px dashed var(--line);border-radius:12px;padding:12px;text-align:center}
+
+/* логотип клиники над названием */
+.hero-logo{display:block;margin:0 auto 6px;width:56px;height:auto;padding:6px 8px;border-radius:14px;background:#fffdf9;box-shadow:0 4px 14px rgba(70,30,0,.35)}
