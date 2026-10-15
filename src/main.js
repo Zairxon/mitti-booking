@@ -511,10 +511,27 @@ function startPolling() {
 }
 function stopPolling() { clearInterval(pollT); clearInterval(tickT); pollT = tickT = null; }
 
+// Быстрый старт: данные клиники и свободные дни запрашиваются сразу и одновременно (запрос уходит ещё из index.html, пока грузится код),
+// а при повторном заходе календарь рисуется из прошлого ответа без ожидания сети и затем обновляется.
+const BOOT_KEY = 'mitti-boot';
+function bootLoad() { try { const b = JSON.parse(localStorage.getItem(BOOT_KEY) || 'null'); if (b && b.info && b.info.doctors && Date.now() - b.t < 6 * 3600e3) return b; } catch (e) { /* нет сохранённого */ } return null; }
+function bootSave() { try { localStorage.setItem(BOOT_KEY, JSON.stringify({ t: Date.now(), info: S.info, days: S.days })); } catch (e) { /* без запоминания */ } }
+function earlyRpc(name) { const w = window.__pre; if (w && w[name] && Date.now() - w.t < 30000) { const p = w[name]; w[name] = null; return p.catch(() => rpc(name)); } return rpc(name); }
+function applyDefaults() {
+  if (S.info.doctors.length === 1) S.doctor = S.info.doctors[0].id;
+  const w = workDays();
+  if (!S.day || (S.days && S.days[S.day] === 0)) S.day = w.filter((d) => !S.days || S.days[d] !== 0)[0] || w[0] || '';
+}
 async function start() {
   render();
-  try { S.info = await rpc('public_info'); S.error = ''; await loadDays(); if (S.info.doctors.length === 1) S.doctor = S.info.doctors[0].id; const w = workDays(); S.day = w.filter((d) => !S.days || S.days[d] !== 0)[0] || w[0] || ''; if (S.day && S.doctor) await loadSlots(); }
-  catch (e) { S.error = t('Нет связи. Попробуйте ещё раз.'); }
+  const cached = bootLoad();
+  if (cached) { S.info = cached.info; S.days = cached.days || null; applyDefaults(); render(); }
+  try {
+    const [info, days] = await Promise.all([earlyRpc('public_info'), earlyRpc('public_days').catch(() => null)]);
+    S.info = info; S.days = days; S.error = ''; bootSave(); applyDefaults(); render();
+    if (S.day && S.doctor) await loadSlots();
+  }
+  catch (e) { if (!cached) S.error = t('Нет связи. Попробуйте ещё раз.'); }
   try { const sv = JSON.parse(localStorage.getItem(PAY_KEY) || 'null'); if (sv && sv.id && sv.token) { S.pay = sv; await pollPay(); if (S.pay) startPolling(); } } catch (e) { /* нет сохранённой брони */ }
   initTour({ S, prepayOn, track });
   if (S.info) track('open', FRESH_UTM ? { source: FRESH_UTM.source, medium: FRESH_UTM.medium, campaign: FRESH_UTM.campaign } : null, true);
