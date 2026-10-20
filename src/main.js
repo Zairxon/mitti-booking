@@ -70,6 +70,7 @@ const ERR = {
   paid_call: 'Запись с оплатой отменяется по звонку в клинику.',
   cannot_cancel: 'Эту запись уже нельзя отменить.',
   not_found: 'Запись не найдена.',
+  busy: 'Сейчас много броней, ожидающих оплаты. Подождите несколько минут и повторите или позвоните в клинику.',
 };
 // Всплывающее сообщение внизу экрана: видно, где бы ни была прокручена страница
 function toast(msg) {
@@ -462,30 +463,42 @@ document.addEventListener('input', (ev) => {
 document.addEventListener('focusin', (ev) => { const el = ev.target; if (el.id === 'b-phone' && !el.value) { el.value = '+998 '; S.phone = el.value; } });
 document.addEventListener('focusout', (ev) => { const el = ev.target; if (el.id === 'b-phone' && localDigits(el.value) === '') { el.value = ''; S.phone = ''; } });
 
-// фото сжимаем до ~1400 px, чтобы не гонять мегабайты по мобильной сети
-function shrink(file) {
-  return new Promise((resolve, reject) => {
-    const img = new Image(), url = URL.createObjectURL(file);
-    img.onload = () => {
-      const k = Math.min(1, 1400 / Math.max(img.width, img.height)), c = document.createElement('canvas');
-      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
-      resolve(c.toDataURL('image/jpeg', 0.82).split(',')[1]);
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('bad_image')); };
-    img.src = url;
-  });
+// фото сжимаем до ~1400 px, чтобы не гонять мегабайты по мобильной сети.
+// Сначала быстрый путь (createImageBitmap учитывает поворот снимка), затем обычная картинка; если телефон не смог открыть формат (например HEIC),
+// а файл небольшой и это JPEG, PNG или WebP, отправляем его как есть.
+const rawB64 = (file) => new Promise((resolve, reject) => { const fr = new FileReader(); fr.onload = () => resolve(String(fr.result).split(',')[1]); fr.onerror = () => reject(new Error('bad_image')); fr.readAsDataURL(file); });
+const drawJpeg = (src, w, h) => { const k = Math.min(1, 1400 / Math.max(w, h)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k)); c.getContext('2d').drawImage(src, 0, 0, c.width, c.height); return c.toDataURL('image/jpeg', 0.82).split(',')[1]; };
+async function shrink(file) {
+  try {
+    if (window.createImageBitmap) { const bmp = await createImageBitmap(file); try { return { image: drawJpeg(bmp, bmp.width, bmp.height), mime: 'image/jpeg' }; } finally { if (bmp.close) bmp.close(); } }
+  } catch (e) { /* пробуем обычную картинку */ }
+  try {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((resolve, reject) => { const i = new Image(); i.onload = () => resolve(i); i.onerror = () => reject(new Error('bad_image')); i.src = url; });
+      return { image: drawJpeg(img, img.naturalWidth || img.width, img.naturalHeight || img.height), mime: 'image/jpeg' };
+    } finally { URL.revokeObjectURL(url); }
+  } catch (e) { /* последняя попытка ниже */ }
+  if (/^image\/(jpeg|png|webp)$/.test(file.type) && file.size <= 2500000) return { image: await rawB64(file), mime: file.type };
+  throw new Error('bad_image');
 }
 async function sendReceipt(file) {
   const p = S.pay; if (!p) return;
   track('receipt_pick'); p.uploading = true; p.err = ''; render();
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 45000);
   try {
-    const image = await shrink(file);
-    const r = await fetch(SUPABASE_URL + '/functions/v1/telegram-bot?op=upload', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY }, body: JSON.stringify({ id: p.id, token: p.token, image, mime: 'image/jpeg' }) });
+    const { image, mime } = await shrink(file);
+    const r = await fetch(SUPABASE_URL + '/functions/v1/telegram-bot?op=upload', { method: 'POST', signal: ctl.signal, headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY }, body: JSON.stringify({ id: p.id, token: p.token, image, mime }) });
     const j = await r.json().catch(() => ({}));
-    if (r.ok) { p.pay_status = 'review'; track('receipt_sent'); } else if (j.error === 'expired') p.pay_status = 'expired'; else p.err = t('Не удалось отправить чек. Попробуйте ещё раз.');
-  } catch (e) { p.err = t('Не удалось отправить чек. Попробуйте ещё раз.'); }
-  p.uploading = false; savePay(); render();
+    if (r.ok) { p.pay_status = 'review'; track('receipt_sent'); }
+    else if (j.error === 'expired') p.pay_status = 'expired';
+    else if (j.error === 'bad_image') p.err = t('Фото не подошло. Сделайте снимок чека заново или выберите другое фото.');
+    else p.err = t('Не удалось отправить чек. Попробуйте ещё раз.');
+  } catch (e) {
+    p.err = e && e.name === 'AbortError' ? t('Слабая связь: чек не успел отправиться. Попробуйте ещё раз.') : e && e.message === 'bad_image' ? t('Не удалось открыть фото. Сделайте снимок чека заново или выберите другое фото.') : t('Не удалось отправить чек. Попробуйте ещё раз.');
+    track('book_error', { code: e && e.name === 'AbortError' ? 'receipt_timeout' : 'receipt_fail' });
+  }
+  clearTimeout(timer); p.uploading = false; savePay(); render();
 }
 let pollT = null, tickT = null;
 async function pollPay() {
